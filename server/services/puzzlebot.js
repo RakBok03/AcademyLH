@@ -50,12 +50,13 @@ export async function sendReviewMessage({ text, photoUrl, rewardUrl }) {
 
 export async function notifyReward(userTelegramId, points) {
   const command = process.env.PUZZLEBOT_REWARD_COMMAND;
-  if (!command || !userTelegramId) return { skipped: true };
-  await callPuzzleBot('variableChange', {
+  if (!userTelegramId) return { skipped: true };
+  const variableResult = await callPuzzleBot('variableChange', {
     variable: 'points_from_help_in_tasks',
     expression: points,
     user_id: userTelegramId
   });
+  if (!command) return variableResult;
   return callPuzzleBot('sendCommand', {
     command_name: command,
     tg_chat_id: userTelegramId
