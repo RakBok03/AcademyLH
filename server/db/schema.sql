@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
   title_score INTEGER NOT NULL DEFAULT 0,
   title_text TEXT NOT NULL DEFAULT 'Стажер',
   academy_level INTEGER NOT NULL DEFAULT 0,
+  course_completed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -31,6 +32,17 @@ CREATE TABLE IF NOT EXISTS course_sections (
   order_index INTEGER NOT NULL DEFAULT 0
 );
 
+CREATE TABLE IF NOT EXISTS course_lessons (
+  id SERIAL PRIMARY KEY,
+  section_id INTEGER NOT NULL REFERENCES course_sections(id) ON DELETE CASCADE,
+  slug TEXT NOT NULL UNIQUE,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL DEFAULT '',
+  media JSONB NOT NULL DEFAULT '[]'::jsonb,
+  legacy_command TEXT,
+  order_index INTEGER NOT NULL DEFAULT 0
+);
+
 CREATE TABLE IF NOT EXISTS user_progress (
   id SERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -49,9 +61,12 @@ CREATE TABLE IF NOT EXISTS quizzes (
   source TEXT NOT NULL DEFAULT 'tests',
   difficulty TEXT NOT NULL DEFAULT 'easy',
   weight INTEGER NOT NULL DEFAULT 1,
+  reward_points INTEGER NOT NULL DEFAULT 0,
   pass_score INTEGER NOT NULL DEFAULT 0,
   max_score INTEGER NOT NULL DEFAULT 0,
   description TEXT NOT NULL DEFAULT '',
+  section_id INTEGER REFERENCES course_sections(id) ON DELETE SET NULL,
+  course_required BOOLEAN NOT NULL DEFAULT false,
   order_index INTEGER NOT NULL DEFAULT 0
 );
 
@@ -94,6 +109,15 @@ CREATE TABLE IF NOT EXISTS tasks (
   order_index INTEGER NOT NULL DEFAULT 0
 );
 
+CREATE TABLE IF NOT EXISTS content_pages (
+  id SERIAL PRIMARY KEY,
+  slug TEXT NOT NULL UNIQUE,
+  title TEXT NOT NULL,
+  body JSONB NOT NULL DEFAULT '[]'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS task_submissions (
   id SERIAL PRIMARY KEY,
   task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
@@ -132,3 +156,13 @@ CREATE TABLE IF NOT EXISTS point_events (
 CREATE INDEX IF NOT EXISTS idx_quiz_attempts_user ON quiz_attempts(user_id);
 CREATE INDEX IF NOT EXISTS idx_task_submissions_user ON task_submissions(user_id);
 CREATE INDEX IF NOT EXISTS idx_users_score ON users(title_score DESC);
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS course_completed_at TIMESTAMPTZ;
+ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS reward_points INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS section_id INTEGER REFERENCES course_sections(id) ON DELETE SET NULL;
+ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS course_required BOOLEAN NOT NULL DEFAULT false;
+
+DELETE FROM users
+WHERE telegram_id = 100001
+   OR username = 'demo_user'
+   OR (first_name = 'Demo' AND last_name = 'Academy');

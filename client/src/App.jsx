@@ -4,7 +4,9 @@ import {
   BarChart3,
   BookOpen,
   Check,
+  ChevronDown,
   ClipboardList,
+  Edit3,
   Home,
   LayoutDashboard,
   Lock,
@@ -12,6 +14,7 @@ import {
   Send,
   Settings,
   Sparkles,
+  Trash2,
   Trophy,
   User
 } from 'lucide-react';
@@ -22,7 +25,8 @@ const statusLabels = {
   locked: 'Закрыто',
   pending: 'На проверке',
   approved: 'Принято',
-  rejected: 'Нужно доработать'
+  rejected: 'Отклонено',
+  completed: 'Пройдено'
 };
 
 const allowedPages = new Set(['home', 'profile', 'courses', 'tests', 'leaderboard', 'tasks', 'admin']);
@@ -89,15 +93,11 @@ function HomePage({ data, setPage }) {
         </button>
       </PageHeader>
       <section className="hero-panel">
-        <div className="surreal-mark" aria-hidden="true">
-          <span />
-          <span />
-          <span />
-        </div>
+        <div className="surreal-mark" aria-hidden="true"><span /><span /><span /></div>
         <div>
           <p className="eyebrow">Твоя траектория</p>
           <h2>{data.user.titleText}</h2>
-          <p>Очки, тесты, задания и прогресс теперь собраны в одном mini app.</p>
+          <p>Курс, тесты, задания, рейтинг и профиль собраны в одном mini app.</p>
         </div>
         <div className="hero-score">
           <strong>{data.user.titleScore}</strong>
@@ -112,41 +112,45 @@ function HomePage({ data, setPage }) {
         <button onClick={() => setPage('tasks')}><Send size={20} />Задания</button>
         {data.user.role === 'admin' && <button onClick={() => setPage('admin')}><Settings size={20} />Админка</button>}
       </section>
-      <section className="list-section">
-        <h2>Топ-5</h2>
-        <div className="list">
-          {data.leaderboard.map((user, index) => (
-            <div className="row" key={user.id}>
-              <span className="rank">{index + 1}</span>
-              <Avatar user={user} />
-              <div className="row-main">
-                <strong>{formatName(user)}</strong>
-                <span>{user.title_text}</span>
-              </div>
-              <b>{user.title_score}</b>
-            </div>
-          ))}
-        </div>
-      </section>
+      <TopList users={data.leaderboard} title="Топ-5" />
     </main>
+  );
+}
+
+function TopList({ users, title }) {
+  return (
+    <section className="list-section">
+      <h2>{title}</h2>
+      <div className="list">
+        {users.map((user, index) => (
+          <div className="row" key={user.id}>
+            <span className="rank">{index + 1}</span>
+            <Avatar user={user} />
+            <div className="row-main">
+              <strong>{formatName(user)}</strong>
+              <span>{user.title_text}</span>
+            </div>
+            <b>{user.title_score}</b>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
 function ProfilePage({ me, setPage }) {
   const completed = me.progress.filter((item) => item.status === 'completed').length;
-  const groupedProgress = useMemo(() => {
-    return me.progress.reduce((acc, item) => {
-      const slug = item.course_slug || 'stazher-trail';
-      acc[slug] ||= {
-        slug,
-        title: item.course_title || 'Стажерская тропа',
-        difficulty: item.course_difficulty || 'начальный',
-        items: []
-      };
-      acc[slug].items.push(item);
-      return acc;
-    }, {});
-  }, [me.progress]);
+  const groupedProgress = useMemo(() => me.progress.reduce((acc, item) => {
+    const slug = item.course_slug || 'stazher-trail';
+    acc[slug] ||= {
+      slug,
+      title: item.course_title || 'Стажерская тропа',
+      difficulty: item.course_difficulty || 'начальный',
+      items: []
+    };
+    acc[slug].items.push(item);
+    return acc;
+  }, {}), [me.progress]);
 
   return (
     <main className="page">
@@ -195,7 +199,7 @@ function ProfilePage({ me, setPage }) {
               <Check size={18} />
               <div className="row-main">
                 <strong>{attempt.title}</strong>
-                <span>{attempt.category} · {attempt.difficulty}</span>
+                <span>{attempt.source === 'course' ? 'Курс' : attempt.category} · {attempt.difficulty}</span>
               </div>
               <b>{attempt.score}/{attempt.max_score}</b>
             </div>
@@ -206,7 +210,10 @@ function ProfilePage({ me, setPage }) {
   );
 }
 
-function CoursesPage({ courses, selectedCourse, openCourse, setPage }) {
+function CoursesPage({ courses, selectedCourse, activeSectionSlug, setActiveSectionSlug, openCourse, completeSection, openQuiz, setPage }) {
+  const activeSection = selectedCourse?.sections.find((section) => section.slug === activeSectionSlug)
+    || selectedCourse?.sections.find((section) => section.isAccessible);
+
   return (
     <main className="page">
       <PageHeader eyebrow="Курсы" title="Обучение">
@@ -225,33 +232,70 @@ function CoursesPage({ courses, selectedCourse, openCourse, setPage }) {
         ))}
       </section>
       {selectedCourse && (
-        <section className="list-section">
-          <h2>{selectedCourse.course.title}</h2>
-          <div className="timeline">
+        <>
+          <section className="hero-panel compact">
+            <Medal size={30} />
+            <div>
+              <h2>{selectedCourse.completed ? 'Курс пройден' : selectedCourse.course.title}</h2>
+              <p>{selectedCourse.completed ? 'Можно повторять любой раздел и освежать знания без блокировок.' : 'Открывай этапы по порядку: следующий появляется после проверки текущего.'}</p>
+            </div>
+          </section>
+          <section className="section-grid">
             {selectedCourse.sections.map((section) => (
-              <div key={section.slug}>
-                <span />
-                <div>
-                  <strong>{section.title}</strong>
-                  <p>{section.description}</p>
-                </div>
-              </div>
+              <button
+                key={section.slug}
+                className={cx('section-tile', activeSection?.slug === section.slug && 'selected', section.user_status === 'locked' && 'locked')}
+                disabled={!section.isAccessible}
+                onClick={() => setActiveSectionSlug(section.slug)}
+              >
+                <strong>{section.title}</strong>
+                <span>{statusLabel(section.user_status)}</span>
+              </button>
             ))}
-          </div>
-        </section>
+          </section>
+          {activeSection && (
+            <section className="list-section">
+              <h2>{activeSection.title}</h2>
+              <p className="muted">{activeSection.description}</p>
+              <div className="lesson-stack">
+                {activeSection.lessons?.map((lesson) => (
+                  <article className="lesson-card" key={lesson.id}>
+                    <h3>{lesson.title}</h3>
+                    <p>{lesson.body}</p>
+                    {lesson.media?.length > 0 && (
+                      <div className="upload-links">
+                        {lesson.media.slice(0, 6).map((file, index) => (
+                          <span key={`${file.path}-${index}`}>{file.name || file.path}</span>
+                        ))}
+                      </div>
+                    )}
+                  </article>
+                ))}
+              </div>
+              <div className="course-actions">
+                {activeSection.quizzes?.map((quiz) => (
+                  <button className="secondary" key={quiz.slug} onClick={() => openQuiz(quiz.slug)}>
+                    {quiz.title} · {quiz.bestScore}/{quiz.maxScore}
+                  </button>
+                ))}
+                {!activeSection.quizzes?.length && activeSection.user_status !== 'completed' && (
+                  <button className="primary" onClick={() => completeSection(activeSection.slug)}>Завершить этап</button>
+                )}
+              </div>
+            </section>
+          )}
+        </>
       )}
     </main>
   );
 }
 
-function TestsPage({ quizzes, openQuiz, setPage }) {
-  const grouped = useMemo(() => {
-    return quizzes.reduce((acc, quiz) => {
-      acc[quiz.category] ||= [];
-      acc[quiz.category].push(quiz);
-      return acc;
-    }, {});
-  }, [quizzes]);
+function TestsPage({ quizzes, openQuiz, openContentPage, setPage }) {
+  const grouped = useMemo(() => quizzes.reduce((acc, quiz) => {
+    acc[quiz.category] ||= [];
+    acc[quiz.category].push(quiz);
+    return acc;
+  }, {}), [quizzes]);
 
   return (
     <main className="page">
@@ -260,7 +304,15 @@ function TestsPage({ quizzes, openQuiz, setPage }) {
       </PageHeader>
       {Object.entries(grouped).map(([category, items]) => (
         <section className="list-section" key={category}>
-          <h2>{category}</h2>
+          <div className="section-title-row">
+            <h2>{category}</h2>
+            {category.toLowerCase().includes('алкоголь') && (
+              <button className="ghost compact-button" onClick={() => openContentPage('alcohol-history')}>
+                <BookOpen size={17} />
+                История
+              </button>
+            )}
+          </div>
           <div className="test-grid">
             {items.map((quiz) => (
               <button className="test-card" key={quiz.slug} onClick={() => openQuiz(quiz.slug)}>
@@ -278,10 +330,19 @@ function TestsPage({ quizzes, openQuiz, setPage }) {
 
 function QuizPage({ quizState, submitQuiz, close }) {
   const [answers, setAnswers] = useState({});
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [result, setResult] = useState(null);
-  const done = Object.keys(answers).length === quizState.questions.length;
+  const currentQuestion = quizState.questions[currentIndex];
+  const currentAnswer = currentQuestion ? answers[currentQuestion.id] : null;
+  const isLast = currentIndex === quizState.questions.length - 1;
 
-  async function onSubmit() {
+  useEffect(() => {
+    setAnswers({});
+    setCurrentIndex(0);
+    setResult(null);
+  }, [quizState.quiz.slug]);
+
+  async function finish() {
     const payload = await submitQuiz(quizState.quiz.slug, answers);
     setResult(payload.attempt);
   }
@@ -291,37 +352,60 @@ function QuizPage({ quizState, submitQuiz, close }) {
       <PageHeader eyebrow={quizState.quiz.category} title={quizState.quiz.title}>
         <button className="icon-button" onClick={close}>×</button>
       </PageHeader>
-      {result && (
+      {result ? (
         <section className="result-panel">
           <Medal size={28} />
           <div>
             <h2>{result.score}/{result.max_score}</h2>
             <p>{result.passed ? 'Тест пройден.' : 'Можно пройти еще раз.'}</p>
+            <button className="primary" onClick={close}>Закрыть результат</button>
           </div>
         </section>
-      )}
-      <section className="quiz-stack">
-        {quizState.questions.map((question, index) => (
-          <div className="question" key={question.id}>
-            <span>Вопрос {index + 1}</span>
-            <h2>{question.text}</h2>
+      ) : (
+        <>
+          <section className="question">
+            <span>Вопрос {currentIndex + 1}/{quizState.questions.length}</span>
+            <h2>{currentQuestion.text}</h2>
             <div className="options">
-              {question.options.map((option) => (
+              {currentQuestion.options.map((option) => (
                 <button
                   key={option.id}
-                  className={answers[question.id] === option.id ? 'selected' : ''}
-                  onClick={() => setAnswers((current) => ({ ...current, [question.id]: option.id }))}
+                  className={currentAnswer === option.id ? 'selected' : ''}
+                  onClick={() => setAnswers((current) => ({ ...current, [currentQuestion.id]: option.id }))}
                 >
                   {option.text}
                 </button>
               ))}
             </div>
+          </section>
+          <div className="sticky-action">
+            {!isLast && <button className="primary" disabled={!currentAnswer} onClick={() => setCurrentIndex((index) => index + 1)}>Следующий вопрос</button>}
+            {isLast && <button className="primary" disabled={!currentAnswer} onClick={finish}>Завершить тест</button>}
           </div>
+        </>
+      )}
+    </main>
+  );
+}
+
+function ContentPage({ contentPage, close }) {
+  return (
+    <main className="page">
+      <PageHeader eyebrow="Материал" title={contentPage.title}>
+        <button className="icon-button" onClick={close}>×</button>
+      </PageHeader>
+      <section className="lesson-stack">
+        {contentPage.body.map((block, index) => (
+          <article className="lesson-card" key={index}>
+            {block.text && <p>{block.text}</p>}
+            {block.media?.length > 0 && (
+              <div className="upload-links">
+                {block.media.map((file, fileIndex) => <span key={`${file.path}-${fileIndex}`}>{file.name || file.path}</span>)}
+              </div>
+            )}
+          </article>
         ))}
       </section>
-      <div className="sticky-action">
-        <button className="primary" disabled={!done || result} onClick={onSubmit}>Завершить тест</button>
-      </div>
     </main>
   );
 }
@@ -339,22 +423,7 @@ function LeaderboardPage({ leaderboard, setPage }) {
           <p>{leaderboard.me.titleText} · {leaderboard.me.titleScore} очков</p>
         </div>
       </section>
-      <section className="list-section">
-        <h2>Топ-5</h2>
-        <div className="list">
-          {leaderboard.top.map((user, index) => (
-            <div className="row" key={user.id}>
-              <span className="rank">{index + 1}</span>
-              <Avatar user={user} />
-              <div className="row-main">
-                <strong>{formatName(user)}</strong>
-                <span>{user.title_text}</span>
-              </div>
-              <b>{user.title_score}</b>
-            </div>
-          ))}
-        </div>
-      </section>
+      <TopList users={leaderboard.top} title="Топ-5" />
     </main>
   );
 }
@@ -371,8 +440,7 @@ function TasksPage({ tasks, submitTask, loadMenu, loadMenuFilters, setPage }) {
     if (!activeTask?.requires_menu) return;
     (async () => {
       try {
-        const payload = await loadMenuFilters();
-        setFilters(payload);
+        setFilters(await loadMenuFilters());
       } catch {
         setMenuState({ loading: false, message: 'Не удалось загрузить справочник меню.' });
       }
@@ -425,29 +493,19 @@ function TasksPage({ tasks, submitTask, loadMenu, loadMenuFilters, setPage }) {
           {activeTask.requires_menu && (
             <div className="field-grid">
               <label>Тип мероприятия
-                <select
-                  name="typeEvent"
-                  value={form.typeEvent || ''}
-                  required
-                  onChange={(e) => {
-                    setForm({ ...form, typeEvent: e.target.value, dishName: '' });
-                    setMenu([]);
-                  }}
-                >
+                <select name="typeEvent" value={form.typeEvent || ''} required onChange={(event) => {
+                  setForm({ ...form, typeEvent: event.target.value, dishName: '' });
+                  setMenu([]);
+                }}>
                   <option value="">Выбери тип мероприятия</option>
                   {filters.eventTypes.map((type) => <option key={type} value={type}>{type}</option>)}
                 </select>
               </label>
               <label>Тип блюда
-                <select
-                  name="classDish"
-                  value={form.classDish || ''}
-                  required
-                  onChange={(e) => {
-                    setForm({ ...form, classDish: e.target.value, dishName: '' });
-                    setMenu([]);
-                  }}
-                >
+                <select name="classDish" value={form.classDish || ''} required onChange={(event) => {
+                  setForm({ ...form, classDish: event.target.value, dishName: '' });
+                  setMenu([]);
+                }}>
                   <option value="">Выбери тип блюда</option>
                   {filters.dishClasses.map((dishClass) => <option key={dishClass} value={dishClass}>{dishClass}</option>)}
                 </select>
@@ -458,7 +516,7 @@ function TasksPage({ tasks, submitTask, loadMenu, loadMenuFilters, setPage }) {
               {menuState.message && <p className="field-note">{menuState.message}</p>}
               {menu.length > 0 && (
                 <label className="full">Блюдо
-                  <select name="dishName" required value={form.dishName || ''} onChange={(e) => setForm({ ...form, dishName: e.target.value })}>
+                  <select name="dishName" required value={form.dishName || ''} onChange={(event) => setForm({ ...form, dishName: event.target.value })}>
                     <option value="">Выбери позицию</option>
                     {menu.map((dish) => (
                       <option key={dish.id || dish.Id || dish.name} value={dish.name || dish.Name || dish.title}>{dish.name || dish.Name || dish.title || `Позиция ${dish.id}`}</option>
@@ -477,17 +535,72 @@ function TasksPage({ tasks, submitTask, loadMenu, loadMenuFilters, setPage }) {
   );
 }
 
-function AdminPage({ admin, reviewSubmission, reload, setPage, selectedSubmissionId }) {
+function AdminPage({ admin, reviewSubmission, reload, setPage, selectedSubmissionId, saveTask, deleteTask, saveQuiz, deleteQuiz, loadAdminQuiz }) {
   const [reward, setReward] = useState({});
+  const [taskDraft, setTaskDraft] = useState({ title: '', description: '', taskNum: 1, requiresMenu: false, active: true, orderIndex: 100 });
+  const [taskEditId, setTaskEditId] = useState(null);
+  const [quizDraft, setQuizDraft] = useState(defaultQuizDraft());
+  const [quizEditId, setQuizEditId] = useState(null);
   const selectedId = Number(selectedSubmissionId || 0);
+
+  function editTask(task) {
+    setTaskEditId(task.id);
+    setTaskDraft({
+      title: task.title,
+      description: task.description,
+      taskNum: task.task_num,
+      requiresMenu: task.requires_menu,
+      active: task.active,
+      orderIndex: task.order_index
+    });
+  }
+
+  async function editQuiz(quiz) {
+    const full = await loadAdminQuiz(quiz.id);
+    setQuizEditId(full.id);
+    setQuizDraft({
+      title: full.title,
+      category: full.category,
+      source: full.source,
+      difficulty: full.difficulty,
+      weight: full.weight,
+      rewardPoints: full.reward_points,
+      passScore: full.pass_score,
+      description: full.description,
+      sectionSlug: admin.sectionSlugs.includes(full.section_slug) ? full.section_slug : '',
+      courseRequired: full.course_required,
+      orderIndex: full.order_index,
+      questionsText: JSON.stringify(full.questions.map((question) => ({
+        text: question.text,
+        options: question.options.map((option) => ({ text: option.text, isCorrect: option.isCorrect }))
+      })), null, 2)
+    });
+  }
+
+  async function submitTaskForm(event) {
+    event.preventDefault();
+    await saveTask(taskEditId, taskDraft);
+    setTaskEditId(null);
+    setTaskDraft({ title: '', description: '', taskNum: 1, requiresMenu: false, active: true, orderIndex: 100 });
+  }
+
+  async function submitQuizForm(event) {
+    event.preventDefault();
+    const questions = JSON.parse(quizDraft.questionsText);
+    await saveQuiz(quizEditId, { ...quizDraft, questions });
+    setQuizEditId(null);
+    setQuizDraft(defaultQuizDraft());
+  }
+
   return (
     <main className="page">
-      <PageHeader eyebrow="Админка" title="Проверка и пользователи">
+      <PageHeader eyebrow="Админка" title="Управление Академией">
         <BackHomeButton setPage={setPage} />
       </PageHeader>
-      <section className="list-section">
-        <h2>Заявки</h2>
+      <details className="admin-panel" open>
+        <summary><span>Заявки на проверку</span><ChevronDown size={18} /></summary>
         <div className="list">
+          {admin.submissions.length === 0 && <p className="muted">Новых заявок нет.</p>}
           {admin.submissions.map((submission) => (
             <div className={cx('admin-item', selectedId === submission.id && 'selected-admin-item')} key={submission.id}>
               <div>
@@ -500,21 +613,88 @@ function AdminPage({ admin, reviewSubmission, reload, setPage, selectedSubmissio
                 <small>{statusLabel(submission.status)}</small>
                 {submission.uploads?.length > 0 && (
                   <div className="upload-links">
-                    {submission.uploads.map((upload) => (
-                      <a key={upload.id} href={upload.url} target="_blank" rel="noreferrer">{upload.name}</a>
-                    ))}
+                    {submission.uploads.map((upload) => <a key={upload.id} href={upload.url} target="_blank" rel="noreferrer">{upload.name}</a>)}
                   </div>
                 )}
               </div>
-              <input type="number" min="0" placeholder="Баллы" value={reward[submission.id] || ''} onChange={(e) => setReward({ ...reward, [submission.id]: e.target.value })} />
-              <button onClick={async () => { await reviewSubmission(submission.id, 'approved', reward[submission.id] || 0); reload(); }}>Вознаградить</button>
+              <input type="number" min="0" placeholder="Баллы" value={reward[submission.id] || ''} onChange={(event) => setReward({ ...reward, [submission.id]: event.target.value })} />
+              <button onClick={async () => { await reviewSubmission(submission.id, 'approved', reward[submission.id] || 0); reload(); }}>Засчитать</button>
               <button className="secondary" onClick={async () => { await reviewSubmission(submission.id, 'rejected', 0); reload(); }}>Отклонить</button>
             </div>
           ))}
         </div>
-      </section>
-      <section className="list-section">
-        <h2>Пользователи</h2>
+      </details>
+      <details className="admin-panel">
+        <summary><span>Задания</span><ChevronDown size={18} /></summary>
+        <form className="editor-form" onSubmit={submitTaskForm}>
+          <div className="field-grid">
+            <label>Номер<input type="number" value={taskDraft.taskNum} onChange={(event) => setTaskDraft({ ...taskDraft, taskNum: event.target.value })} /></label>
+            <label>Порядок<input type="number" value={taskDraft.orderIndex} onChange={(event) => setTaskDraft({ ...taskDraft, orderIndex: event.target.value })} /></label>
+          </div>
+          <label>Название<input value={taskDraft.title} onChange={(event) => setTaskDraft({ ...taskDraft, title: event.target.value })} required /></label>
+          <label>Описание<textarea rows="7" value={taskDraft.description} onChange={(event) => setTaskDraft({ ...taskDraft, description: event.target.value })} /></label>
+          <label className="check-line"><input type="checkbox" checked={taskDraft.requiresMenu} onChange={(event) => setTaskDraft({ ...taskDraft, requiresMenu: event.target.checked })} /> Использует меню NocoDB</label>
+          <label className="check-line"><input type="checkbox" checked={taskDraft.active} onChange={(event) => setTaskDraft({ ...taskDraft, active: event.target.checked })} /> Активно</label>
+          <button className="primary">{taskEditId ? 'Сохранить задание' : 'Добавить задание'}</button>
+        </form>
+        <div className="list">
+          {admin.tasks.map((task) => (
+            <div className="row" key={task.id}>
+              <div className="row-main">
+                <strong>{task.task_num}. {task.title}</strong>
+                <span>{task.active ? 'активно' : 'скрыто'}</span>
+              </div>
+              <button className="ghost compact-button" onClick={() => editTask(task)}><Edit3 size={16} />Изменить</button>
+              <button className="secondary compact-button" onClick={() => deleteTask(task.id)}><Trash2 size={16} />Удалить</button>
+            </div>
+          ))}
+        </div>
+      </details>
+      <details className="admin-panel">
+        <summary><span>Тесты</span><ChevronDown size={18} /></summary>
+        <form className="editor-form" onSubmit={submitQuizForm}>
+          <div className="field-grid">
+            <label>Тип
+              <select value={quizDraft.source} onChange={(event) => setQuizDraft({ ...quizDraft, source: event.target.value })}>
+                <option value="tests">Раздел Тесты</option>
+                <option value="course">Тест курса</option>
+              </select>
+            </label>
+            <label>Сложность<input value={quizDraft.difficulty} onChange={(event) => setQuizDraft({ ...quizDraft, difficulty: event.target.value })} /></label>
+          </div>
+          <label>Название<input value={quizDraft.title} onChange={(event) => setQuizDraft({ ...quizDraft, title: event.target.value })} required /></label>
+          <label>Категория<input value={quizDraft.category} onChange={(event) => setQuizDraft({ ...quizDraft, category: event.target.value })} required /></label>
+          <div className="field-grid">
+            <label>Вес<input type="number" value={quizDraft.weight} onChange={(event) => setQuizDraft({ ...quizDraft, weight: event.target.value })} /></label>
+            <label>Проходной балл<input type="number" value={quizDraft.passScore} onChange={(event) => setQuizDraft({ ...quizDraft, passScore: event.target.value })} /></label>
+            <label>Баллы курса<input type="number" value={quizDraft.rewardPoints} onChange={(event) => setQuizDraft({ ...quizDraft, rewardPoints: event.target.value })} /></label>
+            <label>Раздел курса
+              <select value={quizDraft.sectionSlug} onChange={(event) => setQuizDraft({ ...quizDraft, sectionSlug: event.target.value })}>
+                <option value="">Не привязан</option>
+                {admin.sectionSlugs.map((slug) => <option key={slug} value={slug}>{slug}</option>)}
+              </select>
+            </label>
+          </div>
+          <label>Описание<textarea rows="3" value={quizDraft.description} onChange={(event) => setQuizDraft({ ...quizDraft, description: event.target.value })} /></label>
+          <label>Вопросы JSON<textarea className="textarea-code" rows="12" value={quizDraft.questionsText} onChange={(event) => setQuizDraft({ ...quizDraft, questionsText: event.target.value })} /></label>
+          <label className="check-line"><input type="checkbox" checked={quizDraft.courseRequired} onChange={(event) => setQuizDraft({ ...quizDraft, courseRequired: event.target.checked })} /> Обязательный тест курса</label>
+          <button className="primary">{quizEditId ? 'Сохранить тест' : 'Добавить тест / уровень'}</button>
+        </form>
+        <div className="list">
+          {admin.quizzes.map((quiz) => (
+            <div className="row" key={quiz.id}>
+              <div className="row-main">
+                <strong>{quiz.title}</strong>
+                <span>{quiz.source === 'course' ? 'курс' : 'раздел Тесты'} · {quiz.category} · {quiz.difficulty}</span>
+              </div>
+              <button className="ghost compact-button" onClick={() => editQuiz(quiz)}><Edit3 size={16} />Изменить</button>
+              <button className="secondary compact-button" onClick={() => deleteQuiz(quiz.id)}><Trash2 size={16} />Удалить</button>
+            </div>
+          ))}
+        </div>
+      </details>
+      <details className="admin-panel">
+        <summary><span>Пользователи</span><ChevronDown size={18} /></summary>
         <div className="list">
           {admin.users.map((user) => (
             <div className="row" key={user.id}>
@@ -527,9 +707,35 @@ function AdminPage({ admin, reviewSubmission, reload, setPage, selectedSubmissio
             </div>
           ))}
         </div>
-      </section>
+      </details>
     </main>
   );
+}
+
+function defaultQuizDraft() {
+  return {
+    title: '',
+    category: '',
+    source: 'tests',
+    difficulty: 'easy',
+    weight: 1,
+    rewardPoints: 0,
+    passScore: 1,
+    description: '',
+    sectionSlug: '',
+    courseRequired: false,
+    orderIndex: 100,
+    questionsText: JSON.stringify([
+      {
+        text: 'Вопрос',
+        options: [
+          { text: 'Правильный ответ', isCorrect: true },
+          { text: 'Неверный ответ', isCorrect: false },
+          { text: 'Неверный ответ', isCorrect: false }
+        ]
+      }
+    ], null, 2)
+  };
 }
 
 export function App() {
@@ -542,8 +748,10 @@ export function App() {
   const [me, setMe] = useState(null);
   const [courses, setCourses] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState(null);
+  const [activeSectionSlug, setActiveSectionSlug] = useState(null);
   const [quizzes, setQuizzes] = useState([]);
   const [quizState, setQuizState] = useState(null);
+  const [contentPage, setContentPage] = useState(null);
   const [leaderboard, setLeaderboard] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [admin, setAdmin] = useState(null);
@@ -567,11 +775,19 @@ export function App() {
   }
 
   async function loadAdmin() {
-    const [users, submissions] = await Promise.all([
+    const [users, submissions, taskRows, quizRows] = await Promise.all([
       apiFetch('/admin/users'),
-      apiFetch('/admin/submissions')
+      apiFetch('/admin/submissions'),
+      apiFetch('/admin/tasks'),
+      apiFetch('/admin/quizzes')
     ]);
-    setAdmin({ users: users.users, submissions: submissions.submissions });
+    setAdmin({
+      users: users.users,
+      submissions: submissions.submissions,
+      tasks: taskRows.tasks,
+      quizzes: quizRows.quizzes,
+      sectionSlugs: ['self-employment', 'spaces', 'terms', 'formats', 'serving', 'service', 'final']
+    });
   }
 
   useEffect(() => {
@@ -587,11 +803,24 @@ export function App() {
   }, []);
 
   async function openCourse(slug) {
-    setSelectedCourse(await apiFetch(`/courses/${slug}`));
+    const payload = await apiFetch(`/courses/${slug}`);
+    setSelectedCourse(payload);
+    setActiveSectionSlug(payload.sections.find((section) => section.isAccessible)?.slug || payload.sections[0]?.slug || null);
+  }
+
+  async function completeSection(sectionSlug) {
+    const payload = await apiFetch(`/courses/${selectedCourse.course.slug}/sections/${sectionSlug}/complete`, { method: 'POST' });
+    setSelectedCourse(payload);
+    await loadAll();
   }
 
   async function openQuiz(slug) {
     setQuizState(await apiFetch(`/quizzes/${slug}`));
+  }
+
+  async function openContentPage(slug) {
+    const payload = await apiFetch(`/content-pages/${slug}`);
+    setContentPage(payload.page);
   }
 
   async function submitQuiz(slug, answers) {
@@ -600,6 +829,7 @@ export function App() {
       body: JSON.stringify({ answers })
     });
     await loadAll();
+    if (selectedCourse) await openCourse(selectedCourse.course.slug);
     return result;
   }
 
@@ -609,16 +839,8 @@ export function App() {
     return result.dishes;
   }
 
-  async function loadMenuFilters() {
-    return apiFetch('/tasks/dish-photo/menu-filters');
-  }
-
   async function submitTask(slug, formData) {
-    await apiFetch(`/tasks/${slug}/submissions`, {
-      method: 'POST',
-      body: formData,
-      headers: {}
-    });
+    await apiFetch(`/tasks/${slug}/submissions`, { method: 'POST', body: formData, headers: {} });
     await loadAll();
   }
 
@@ -629,27 +851,59 @@ export function App() {
     });
   }
 
+  async function saveTask(id, payload) {
+    await apiFetch(id ? `/admin/tasks/${id}` : '/admin/tasks', {
+      method: id ? 'PUT' : 'POST',
+      body: JSON.stringify(payload)
+    });
+    await loadAdmin();
+    await loadAll();
+  }
+
+  async function deleteTask(id) {
+    await apiFetch(`/admin/tasks/${id}`, { method: 'DELETE' });
+    await loadAdmin();
+    await loadAll();
+  }
+
+  async function loadAdminQuiz(id) {
+    const result = await apiFetch(`/admin/quizzes/${id}`);
+    return result.quiz;
+  }
+
+  async function saveQuiz(id, payload) {
+    await apiFetch(id ? `/admin/quizzes/${id}` : '/admin/quizzes', {
+      method: id ? 'PUT' : 'POST',
+      body: JSON.stringify(payload)
+    });
+    await loadAdmin();
+    await loadAll();
+  }
+
+  async function deleteQuiz(id) {
+    await apiFetch(`/admin/quizzes/${id}`, { method: 'DELETE' });
+    await loadAdmin();
+    await loadAll();
+  }
+
   if (boot.loading) return <div className="splash"><LayoutDashboard size={34} /><span>AcademyLH</span></div>;
   if (boot.error) return <div className="splash error"><Lock size={34} /><span>{boot.error}</span></div>;
   if (quizState) return <QuizPage quizState={quizState} submitQuiz={submitQuiz} close={() => setQuizState(null)} />;
+  if (contentPage) return <ContentPage contentPage={contentPage} close={() => setContentPage(null)} />;
 
   return (
     <div className="app-shell">
       {page === 'home' && <HomePage data={home} setPage={setPage} />}
       {page === 'profile' && <ProfilePage me={me} setPage={setPage} />}
-      {page === 'courses' && <CoursesPage courses={courses} selectedCourse={selectedCourse} openCourse={openCourse} setPage={setPage} />}
-      {page === 'tests' && <TestsPage quizzes={quizzes} openQuiz={openQuiz} setPage={setPage} />}
+      {page === 'courses' && <CoursesPage courses={courses} selectedCourse={selectedCourse} activeSectionSlug={activeSectionSlug} setActiveSectionSlug={setActiveSectionSlug} openCourse={openCourse} completeSection={completeSection} openQuiz={openQuiz} setPage={setPage} />}
+      {page === 'tests' && <TestsPage quizzes={quizzes} openQuiz={openQuiz} openContentPage={openContentPage} setPage={setPage} />}
       {page === 'leaderboard' && <LeaderboardPage leaderboard={leaderboard} setPage={setPage} />}
-      {page === 'tasks' && <TasksPage tasks={tasks} submitTask={submitTask} loadMenu={loadMenu} loadMenuFilters={loadMenuFilters} setPage={setPage} />}
-      {page === 'admin' && home.user.role === 'admin' && admin && <AdminPage admin={admin} reviewSubmission={reviewSubmission} reload={loadAdmin} setPage={setPage} selectedSubmissionId={selectedSubmissionId} />}
+      {page === 'tasks' && <TasksPage tasks={tasks} submitTask={submitTask} loadMenu={loadMenu} loadMenuFilters={() => apiFetch('/tasks/dish-photo/menu-filters')} setPage={setPage} />}
+      {page === 'admin' && home.user.role === 'admin' && admin && <AdminPage admin={admin} reviewSubmission={reviewSubmission} reload={loadAdmin} setPage={setPage} selectedSubmissionId={selectedSubmissionId} saveTask={saveTask} deleteTask={deleteTask} saveQuiz={saveQuiz} deleteQuiz={deleteQuiz} loadAdminQuiz={loadAdminQuiz} />}
       {page === 'admin' && home.user.role !== 'admin' && (
         <main className="page">
-          <PageHeader eyebrow="Доступ" title="Админка закрыта">
-            <BackHomeButton setPage={setPage} />
-          </PageHeader>
-          <section className="list-section">
-            <p className="muted">Этот раздел доступен только администраторам.</p>
-          </section>
+          <PageHeader eyebrow="Доступ" title="Админка закрыта"><BackHomeButton setPage={setPage} /></PageHeader>
+          <section className="list-section"><p className="muted">Этот раздел доступен только администраторам.</p></section>
         </main>
       )}
     </div>

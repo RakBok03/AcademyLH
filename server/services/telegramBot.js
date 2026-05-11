@@ -42,3 +42,23 @@ export async function fetchTelegramProfilePhoto(telegramId) {
   const buffer = Buffer.from(await photoResponse.arrayBuffer());
   return { buffer, contentType };
 }
+
+export async function sendTelegramMessage(chatId, text) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token || !chatId) return { skipped: true };
+
+  const response = await fetch(`${TELEGRAM_API}/bot${token}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text,
+      parse_mode: 'HTML',
+      disable_web_page_preview: true
+    })
+  });
+  if (!response.ok) {
+    return { ok: false, status: response.status, text: await response.text() };
+  }
+  return response.json();
+}

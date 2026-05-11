@@ -264,7 +264,8 @@ button:disabled {
 .list,
 .quiz-stack,
 .progress-lines,
-.timeline {
+.timeline,
+.lesson-stack {
   display: grid;
   gap: 10px;
 }
@@ -402,6 +403,79 @@ button:disabled {
 
 .course-list {
   grid-template-columns: 1fr;
+}
+
+.section-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.section-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.section-title-row h2 {
+  margin: 0;
+}
+
+.section-tile {
+  min-height: 86px;
+  display: grid;
+  align-content: space-between;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper-solid);
+  color: var(--ink);
+  text-align: left;
+}
+
+.section-tile.selected {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 2px rgba(21, 21, 21, 0.12);
+}
+
+.section-tile.locked {
+  opacity: 0.58;
+}
+
+.section-tile span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.lesson-card {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper-solid);
+}
+
+.lesson-card h3 {
+  margin: 0 0 10px;
+  font-size: 18px;
+}
+
+.lesson-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+  white-space: pre-line;
+}
+
+.course-actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
 }
 
 .course-card h2,
@@ -644,6 +718,55 @@ textarea {
   box-shadow: 0 0 0 2px rgba(217, 93, 57, 0.18);
 }
 
+.admin-panel {
+  margin: 14px 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 250, 240, 0.72);
+}
+
+.admin-panel summary {
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  font-weight: 900;
+}
+
+.admin-panel > .list,
+.admin-panel > .editor-form {
+  margin: 0 16px 16px;
+}
+
+.editor-form {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper-solid);
+}
+
+.check-line {
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  justify-content: start;
+}
+
+.check-line input {
+  width: auto;
+  min-height: auto;
+}
+
+.textarea-code {
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .icon-button {
   width: 42px;
   height: 42px;
@@ -693,7 +816,8 @@ textarea {
   .quick-grid,
   .stats-grid,
   .test-grid,
-  .task-grid {
+  .task-grid,
+  .section-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -706,7 +830,8 @@ textarea {
   .quick-grid,
   .stats-grid,
   .test-grid,
-  .task-grid {
+  .task-grid,
+  .section-grid {
     grid-template-columns: 1fr;
   }
 
