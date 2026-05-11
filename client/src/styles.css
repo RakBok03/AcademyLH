@@ -19,6 +19,14 @@
   box-sizing: border-box;
 }
 
+html,
+body,
+#root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 body {
   margin: 0;
   min-width: 320px;
@@ -61,12 +69,17 @@ button:disabled {
 .app-shell {
   min-height: 100vh;
   padding-bottom: 32px;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .page {
   width: min(1080px, 100%);
   margin: 0 auto;
   padding: 28px 18px 0;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .page-header {
@@ -75,6 +88,11 @@ button:disabled {
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 18px;
+  min-width: 0;
+}
+
+.page-header > div:first-child {
+  min-width: 0;
 }
 
 .page-header h1 {
@@ -82,6 +100,7 @@ button:disabled {
   font-size: clamp(30px, 6vw, 56px);
   line-height: 0.95;
   letter-spacing: 0;
+  overflow-wrap: anywhere;
 }
 
 .eyebrow {
@@ -121,6 +140,7 @@ button:disabled {
   margin: 0 0 8px;
   font-size: 34px;
   letter-spacing: 0;
+  overflow-wrap: anywhere;
 }
 
 .hero-panel p,
@@ -221,6 +241,9 @@ button:disabled {
   background: var(--paper-solid);
   color: var(--ink);
   text-align: left;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .quick-grid button {
@@ -254,6 +277,9 @@ button:disabled {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: rgba(255, 250, 240, 0.72);
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .list-section h2 {
@@ -398,7 +424,10 @@ button:disabled {
 .header-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 10px;
+  min-width: 0;
 }
 
 .course-list {
@@ -435,6 +464,8 @@ button:disabled {
   background: var(--paper-solid);
   color: var(--ink);
   text-align: left;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .section-tile.selected {
@@ -458,6 +489,10 @@ button:disabled {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--paper-solid);
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-wrap: anywhere;
 }
 
 .lesson-card h3 {
@@ -472,6 +507,22 @@ button:disabled {
   white-space: pre-line;
 }
 
+.rich-text {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.rich-text a {
+  color: var(--teal);
+  font-weight: 900;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .course-actions {
   display: grid;
   gap: 10px;
@@ -482,6 +533,7 @@ button:disabled {
 .task-card h2 {
   margin: 8px 0;
   font-size: 24px;
+  overflow-wrap: anywhere;
 }
 
 .course-card p,
@@ -490,6 +542,12 @@ button:disabled {
   margin: 0;
   color: var(--muted);
   line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.course-card.selected {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 2px rgba(21, 21, 21, 0.12);
 }
 
 .task-card p {
@@ -577,6 +635,9 @@ button:disabled {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--paper-solid);
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .question > span {
@@ -589,6 +650,7 @@ button:disabled {
 .question h2 {
   margin: 8px 0 14px;
   font-size: 20px;
+  overflow-wrap: anywhere;
 }
 
 .options {
@@ -604,6 +666,7 @@ button:disabled {
   background: #fff;
   color: var(--ink);
   text-align: left;
+  overflow-wrap: anywhere;
 }
 
 .options button.selected {
@@ -658,6 +721,8 @@ button:disabled {
   color: var(--muted);
   line-height: 1.55;
   white-space: pre-line;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 label {
@@ -705,12 +770,63 @@ textarea {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .upload-links a {
   color: var(--teal);
   font-size: 13px;
   font-weight: 800;
+}
+
+.media-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+  max-width: 100%;
+}
+
+.media-grid.single,
+.question-media {
+  grid-template-columns: 1fr;
+}
+
+.media-image-link,
+.media-file-link {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  border-radius: 8px;
+}
+
+.media-image-link {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+
+.media-image-link img {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+
+.media-file-link {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--teal);
+  font-size: 13px;
+  font-weight: 900;
+  overflow-wrap: anywhere;
+}
+
+.question-media {
+  margin: 10px 0 14px;
 }
 
 .selected-admin-item {
@@ -831,7 +947,8 @@ textarea {
   .stats-grid,
   .test-grid,
   .task-grid,
-  .section-grid {
+  .section-grid,
+  .media-grid {
     grid-template-columns: 1fr;
   }
 

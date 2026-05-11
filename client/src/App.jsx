@@ -30,6 +30,9 @@ const statusLabels = {
 };
 
 const allowedPages = new Set(['home', 'profile', 'courses', 'tests', 'leaderboard', 'tasks', 'admin']);
+const puzzleBotMediaBase = 'https://pbt.storage.yandexcloud.net/';
+const imageExtensionPattern = /\.(avif|gif|jpe?g|jfif|png|webp)$/i;
+const urlPattern = /(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/gi;
 
 function statusLabel(status) {
   return statusLabels[status] || status;
@@ -37,6 +40,91 @@ function statusLabel(status) {
 
 function cx(...values) {
   return values.filter(Boolean).join(' ');
+}
+
+function trimUrlTail(value) {
+  const tail = value.match(/[.,!?;:)\]]+$/)?.[0] || '';
+  return {
+    url: tail ? value.slice(0, -tail.length) : value,
+    tail
+  };
+}
+
+function RichText({ text, className }) {
+  if (!text) return null;
+  const value = String(text);
+  const nodes = [];
+  let lastIndex = 0;
+
+  value.replace(urlPattern, (rawUrl, _match, offset) => {
+    if (offset > lastIndex) nodes.push(value.slice(lastIndex, offset));
+    const { url, tail } = trimUrlTail(rawUrl);
+    const href = url.startsWith('http') ? url : `https://${url}`;
+    nodes.push(
+      <a key={`${href}-${offset}`} href={href} target="_blank" rel="noreferrer">
+        клик
+      </a>
+    );
+    if (tail) nodes.push(tail);
+    lastIndex = offset + rawUrl.length;
+    return rawUrl;
+  });
+
+  if (lastIndex < value.length) nodes.push(value.slice(lastIndex));
+  return <p className={cx('rich-text', className)}>{nodes}</p>;
+}
+
+function mediaPath(file) {
+  if (!file) return '';
+  if (typeof file === 'string') return file;
+  return file.url || file.path || file.media_url || file.mediaUrl || '';
+}
+
+function mediaName(file, index) {
+  if (!file || typeof file === 'string') return `Файл ${index + 1}`;
+  return file.name || file.title || `Файл ${index + 1}`;
+}
+
+function mediaUrl(file) {
+  const rawPath = String(mediaPath(file) || '').trim();
+  if (!rawPath) return '';
+  if (/^(https?:|data:|blob:)/i.test(rawPath)) return rawPath;
+  if (rawPath.startsWith('/api/') || rawPath.startsWith('/uploads/')) return rawPath;
+  if (rawPath.startsWith('uploads/')) return `/${rawPath}`;
+  return `${puzzleBotMediaBase}${rawPath.replace(/^\/+/, '')}`;
+}
+
+function isImageMedia(file) {
+  const path = mediaPath(file);
+  const type = typeof file === 'object' ? file?.type || file?.mime || file?.mimeType || '' : '';
+  return String(type).startsWith('image/') || type === 'photo' || imageExtensionPattern.test(String(path).split(/[?#]/)[0]);
+}
+
+function MediaGrid({ media, className }) {
+  const items = (media || []).map((file, index) => ({
+    file,
+    index,
+    url: mediaUrl(file)
+  })).filter((item) => item.url);
+
+  if (!items.length) return null;
+
+  return (
+    <div className={cx('media-grid', items.length === 1 && 'single', className)}>
+      {items.map(({ file, index, url }) => {
+        const label = mediaName(file, index);
+        return isImageMedia(file) ? (
+          <a className="media-image-link" href={url} target="_blank" rel="noreferrer" key={`${url}-${index}`}>
+            <img src={encodeURI(url)} alt={label} loading="lazy" />
+          </a>
+        ) : (
+          <a className="media-file-link" href={url} target="_blank" rel="noreferrer" key={`${url}-${index}`}>
+            {label}
+          </a>
+        );
+      })}
+    </div>
+  );
 }
 
 function formatName(user) {
@@ -211,8 +299,20 @@ function ProfilePage({ me, setPage }) {
 }
 
 function CoursesPage({ courses, selectedCourse, activeSectionSlug, setActiveSectionSlug, openCourse, completeSection, openQuiz, setPage }) {
-  const activeSection = selectedCourse?.sections.find((section) => section.slug === activeSectionSlug)
-    || selectedCourse?.sections.find((section) => section.isAccessible);
+  const activeSection = selectedCourse?.sections.find((section) => section.slug === activeSectionSlug);
+
+  if (selectedCourse && activeSection) {
+    return (
+      <CourseSectionPage
+        course={selectedCourse.course}
+        section={activeSection}
+        setActiveSectionSlug={setActiveSectionSlug}
+        completeSection={completeSection}
+        openQuiz={openQuiz}
+        setPage={setPage}
+      />
+    );
+  }
 
   return (
     <main className="page">
@@ -221,7 +321,7 @@ function CoursesPage({ courses, selectedCourse, activeSectionSlug, setActiveSect
       </PageHeader>
       <section className="course-list">
         {courses.map((course) => (
-          <button className="course-card" key={course.slug} onClick={() => openCourse(course.slug)}>
+          <button className={cx('course-card', selectedCourse?.course.slug === course.slug && 'selected')} key={course.slug} onClick={() => openCourse(course.slug)}>
             <div>
               <span>{course.difficulty}</span>
               <h2>{course.title}</h2>
@@ -236,7 +336,7 @@ function CoursesPage({ courses, selectedCourse, activeSectionSlug, setActiveSect
           <section className="hero-panel compact">
             <Medal size={30} />
             <div>
-              <h2>{selectedCourse.completed ? 'Курс пройден' : selectedCourse.course.title}</h2>
+              <h2>{selectedCourse.completed ? 'Курс пройден' : 'Этапы курса'}</h2>
               <p>{selectedCourse.completed ? 'Можно повторять любой раздел и освежать знания без блокировок.' : 'Открывай этапы по порядку: следующий появляется после проверки текущего.'}</p>
             </div>
           </section>
@@ -244,7 +344,7 @@ function CoursesPage({ courses, selectedCourse, activeSectionSlug, setActiveSect
             {selectedCourse.sections.map((section) => (
               <button
                 key={section.slug}
-                className={cx('section-tile', activeSection?.slug === section.slug && 'selected', section.user_status === 'locked' && 'locked')}
+                className={cx('section-tile', section.user_status === 'locked' && 'locked')}
                 disabled={!section.isAccessible}
                 onClick={() => setActiveSectionSlug(section.slug)}
               >
@@ -253,39 +353,46 @@ function CoursesPage({ courses, selectedCourse, activeSectionSlug, setActiveSect
               </button>
             ))}
           </section>
-          {activeSection && (
-            <section className="list-section">
-              <h2>{activeSection.title}</h2>
-              <p className="muted">{activeSection.description}</p>
-              <div className="lesson-stack">
-                {activeSection.lessons?.map((lesson) => (
-                  <article className="lesson-card" key={lesson.id}>
-                    <h3>{lesson.title}</h3>
-                    <p>{lesson.body}</p>
-                    {lesson.media?.length > 0 && (
-                      <div className="upload-links">
-                        {lesson.media.slice(0, 6).map((file, index) => (
-                          <span key={`${file.path}-${index}`}>{file.name || file.path}</span>
-                        ))}
-                      </div>
-                    )}
-                  </article>
-                ))}
-              </div>
-              <div className="course-actions">
-                {activeSection.quizzes?.map((quiz) => (
-                  <button className="secondary" key={quiz.slug} onClick={() => openQuiz(quiz.slug)}>
-                    {quiz.title} · {quiz.bestScore}/{quiz.maxScore}
-                  </button>
-                ))}
-                {!activeSection.quizzes?.length && activeSection.user_status !== 'completed' && (
-                  <button className="primary" onClick={() => completeSection(activeSection.slug)}>Завершить этап</button>
-                )}
-              </div>
-            </section>
-          )}
         </>
       )}
+    </main>
+  );
+}
+
+function CourseSectionPage({ course, section, setActiveSectionSlug, completeSection, openQuiz, setPage }) {
+  return (
+    <main className="page">
+      <PageHeader eyebrow={course.title} title={section.title}>
+        <div className="header-actions">
+          <button type="button" className="ghost compact-button" onClick={() => setActiveSectionSlug(null)}>
+            <BookOpen size={17} />
+            К курсу
+          </button>
+          <BackHomeButton setPage={setPage} />
+        </div>
+      </PageHeader>
+      <section className="list-section">
+        <RichText text={section.description} className="muted" />
+        <div className="lesson-stack">
+          {section.lessons?.map((lesson) => (
+            <article className="lesson-card" key={lesson.id}>
+              <h3>{lesson.title}</h3>
+              <RichText text={lesson.body} />
+              <MediaGrid media={lesson.media?.slice(0, 12)} />
+            </article>
+          ))}
+        </div>
+        <div className="course-actions">
+          {section.quizzes?.map((quiz) => (
+            <button className="secondary" key={quiz.slug} onClick={() => openQuiz(quiz.slug)}>
+              {quiz.title} · {quiz.bestScore}/{quiz.maxScore}
+            </button>
+          ))}
+          {!section.quizzes?.length && section.user_status !== 'completed' && (
+            <button className="primary" onClick={() => completeSection(section.slug)}>Завершить этап</button>
+          )}
+        </div>
+      </section>
     </main>
   );
 }
@@ -366,6 +473,7 @@ function QuizPage({ quizState, submitQuiz, close }) {
           <section className="question">
             <span>Вопрос {currentIndex + 1}/{quizState.questions.length}</span>
             <h2>{currentQuestion.text}</h2>
+            <MediaGrid media={[currentQuestion.media_url || currentQuestion.mediaUrl].filter(Boolean)} className="question-media" />
             <div className="options">
               {currentQuestion.options.map((option) => (
                 <button
@@ -397,12 +505,8 @@ function ContentPage({ contentPage, close }) {
       <section className="lesson-stack">
         {contentPage.body.map((block, index) => (
           <article className="lesson-card" key={index}>
-            {block.text && <p>{block.text}</p>}
-            {block.media?.length > 0 && (
-              <div className="upload-links">
-                {block.media.map((file, fileIndex) => <span key={`${file.path}-${fileIndex}`}>{file.name || file.path}</span>)}
-              </div>
-            )}
+            <RichText text={block.text} />
+            <MediaGrid media={block.media} />
           </article>
         ))}
       </section>
@@ -489,7 +593,7 @@ function TasksPage({ tasks, submitTask, loadMenu, loadMenuFilters, setPage }) {
         <form className="submission-form" onSubmit={onSubmit}>
           <button type="button" className="ghost" onClick={() => setActive(null)}>Назад</button>
           <h2>{activeTask.title}</h2>
-          <p className="task-description">{activeTask.description}</p>
+          <RichText text={activeTask.description} className="task-description" />
           {activeTask.requires_menu && (
             <div className="field-grid">
               <label>Тип мероприятия
@@ -802,15 +906,26 @@ export function App() {
     })();
   }, []);
 
-  async function openCourse(slug) {
+  async function loadCourse(slug, sectionSlug = null) {
     const payload = await apiFetch(`/courses/${slug}`);
     setSelectedCourse(payload);
-    setActiveSectionSlug(payload.sections.find((section) => section.isAccessible)?.slug || payload.sections[0]?.slug || null);
+    setActiveSectionSlug(sectionSlug);
+    return payload;
+  }
+
+  async function openCourse(slug) {
+    if (selectedCourse?.course.slug === slug) {
+      setSelectedCourse(null);
+      setActiveSectionSlug(null);
+      return;
+    }
+    await loadCourse(slug);
   }
 
   async function completeSection(sectionSlug) {
     const payload = await apiFetch(`/courses/${selectedCourse.course.slug}/sections/${sectionSlug}/complete`, { method: 'POST' });
     setSelectedCourse(payload);
+    setActiveSectionSlug(null);
     await loadAll();
   }
 
@@ -829,7 +944,7 @@ export function App() {
       body: JSON.stringify({ answers })
     });
     await loadAll();
-    if (selectedCourse) await openCourse(selectedCourse.course.slug);
+    if (selectedCourse) await loadCourse(selectedCourse.course.slug, activeSectionSlug);
     return result;
   }
 
