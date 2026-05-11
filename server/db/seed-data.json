@@ -1,0 +1,3549 @@
+{
+  "generatedAt": "2026-05-11T07:08:54.230Z",
+  "courses": [
+    {
+      "slug": "stazher-trail",
+      "title": "Стажерская тропа",
+      "difficulty": "начальный",
+      "description": "Первый курс Академии LOFT HALL: самозанятость, форма, пространства, термины, форматы, сервировка, обслуживание и финальный тест.",
+      "sections": [
+        {
+          "slug": "self-employment",
+          "title": "Самозанятость и форма",
+          "description": "Входной блок о подготовке к работе и форме официанта.",
+          "orderIndex": 1
+        },
+        {
+          "slug": "spaces",
+          "title": "Пространства LOFT HALL",
+          "description": "Залы, площадки и особенности пространств.",
+          "orderIndex": 2
+        },
+        {
+          "slug": "terms",
+          "title": "Термины",
+          "description": "Барные, кухонные и общие рабочие термины.",
+          "orderIndex": 3
+        },
+        {
+          "slug": "formats",
+          "title": "Форматы мероприятий",
+          "description": "Банкет, фуршет, кофе-брейк и другие форматы.",
+          "orderIndex": 4
+        },
+        {
+          "slug": "serving",
+          "title": "Сервировка",
+          "description": "Посуда, стейшен, текстиль и сервировка стола.",
+          "orderIndex": 5
+        },
+        {
+          "slug": "service",
+          "title": "Обслуживание",
+          "description": "Встреча гостей, подача блюд и напитков, группа выноса.",
+          "orderIndex": 6
+        },
+        {
+          "slug": "final",
+          "title": "Финал",
+          "description": "Финальная проверка знаний стажера.",
+          "orderIndex": 7
+        }
+      ]
+    }
+  ],
+  "quizzes": [
+    {
+      "slug": "lofthall-history-easy",
+      "title": "Пространства и история LOFT HALL: легкий",
+      "category": "Пространства и история LOFT HALL",
+      "source": "tests",
+      "difficulty": "easy",
+      "weight": 1,
+      "passScore": 10,
+      "maxScore": 10,
+      "description": "Проверка знаний по пространствам и истории LOFT HALL.",
+      "questions": [
+        {
+          "text": "Какой зал вдохновлен Лос-Анджелесом?",
+          "options": [
+            {
+              "text": "LOFT ANGELES",
+              "isCorrect": true
+            },
+            {
+              "text": "OUTLOFT",
+              "isCorrect": false
+            },
+            {
+              "text": "WELCOME HALL",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой зал назван в честь горы в Европе?",
+          "options": [
+            {
+              "text": "SKY HALL",
+              "isCorrect": false
+            },
+            {
+              "text": "MONTBLANC HALL",
+              "isCorrect": true
+            },
+            {
+              "text": "OUTLOFT",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой зал связан с учебным курсом Баухауса?",
+          "options": [
+            {
+              "text": "ITTEN HALL",
+              "isCorrect": true
+            },
+            {
+              "text": "CINDY HALL",
+              "isCorrect": false
+            },
+            {
+              "text": "MONDRIAN HALL",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой зал назван в честь анонимного художника граффити?",
+          "options": [
+            {
+              "text": "BANKSY HALL",
+              "isCorrect": true
+            },
+            {
+              "text": "MORRISON HALL",
+              "isCorrect": false
+            },
+            {
+              "text": "MONDRIAN HALL",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой зал в LOFT#2 назван в честь нефтяных магнатов?",
+          "options": [
+            {
+              "text": "ROTHSCHILD’S HALL",
+              "isCorrect": false
+            },
+            {
+              "text": "ROCKEFELLER’S HALL",
+              "isCorrect": true
+            },
+            {
+              "text": "BACKYARD HALL",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какая площадка LOFT HALL расположена в лесу?",
+          "options": [
+            {
+              "text": "LOFT#1",
+              "isCorrect": false
+            },
+            {
+              "text": "THE BIRCH",
+              "isCorrect": true
+            },
+            {
+              "text": "LOFT#8",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "По какому адресу расположен LOFT#4?",
+          "options": [
+            {
+              "text": "2-й Кожуховский 29к6",
+              "isCorrect": true
+            },
+            {
+              "text": "Кожуховский 29к6",
+              "isCorrect": false
+            },
+            {
+              "text": "2-й Кожуховский 26к9",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой зал НЕ относятся к LOFT#4?",
+          "options": [
+            {
+              "text": "MORRISON HALL",
+              "isCorrect": false
+            },
+            {
+              "text": "ITTEN HALL",
+              "isCorrect": false
+            },
+            {
+              "text": "BROOK HALL",
+              "isCorrect": true
+            }
+          ]
+        },
+        {
+          "text": "Какой бренд НЕ входит в портфель PLACEBO/25?",
+          "options": [
+            {
+              "text": "QuasarTel",
+              "isCorrect": true
+            },
+            {
+              "text": "LOFT’el",
+              "isCorrect": false
+            },
+            {
+              "text": "Asketi.ca",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "По какому адресу расположен LOFT#1?",
+          "options": [
+            {
+              "text": "Ленинская слобода 26с15",
+              "isCorrect": false
+            },
+            {
+              "text": "Ленинская слобода 26с11",
+              "isCorrect": false
+            },
+            {
+              "text": "Ленинская слобода 26с35",
+              "isCorrect": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "lofthall-history-middle",
+      "title": "Пространства и история LOFT HALL: средний",
+      "category": "Пространства и история LOFT HALL",
+      "source": "tests",
+      "difficulty": "middle",
+      "weight": 2,
+      "passScore": 10,
+      "maxScore": 10,
+      "description": "Проверка знаний по пространствам и истории LOFT HALL.",
+      "questions": [
+        {
+          "text": "Какой зал имеют пол из древесины манго?",
+          "options": [
+            {
+              "text": "AVANTAGE (LOFT#1) и Mango House (THE BIRCH)",
+              "isCorrect": true
+            },
+            {
+              "text": "ROYAL BLANC (LOFT#1) и MAIN HALL (LOFT#8)",
+              "isCorrect": false
+            },
+            {
+              "text": "BLACKWOOD HOUSE (THE BIRCH) и LONG HALL(LOFT#4)",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "В каком зале стены высотой 13 метров?",
+          "options": [
+            {
+              "text": "MAIN HALL (LOFT#8)",
+              "isCorrect": true
+            },
+            {
+              "text": "CROSS HALL (LOFT#8)",
+              "isCorrect": false
+            },
+            {
+              "text": "BLACKWOOD HOUSE (THE BIRCH)",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой зал в LOFT#4 связан с лэнд-артом?",
+          "options": [
+            {
+              "text": "LONG HALL",
+              "isCorrect": true
+            },
+            {
+              "text": "MONDRIAN HALL",
+              "isCorrect": false
+            },
+            {
+              "text": "MORRISON HALL",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "В каком зале был кабинет Джорджа Вестингауза?",
+          "options": [
+            {
+              "text": "WOOD HALL",
+              "isCorrect": true
+            },
+            {
+              "text": "SECRET",
+              "isCorrect": false
+            },
+            {
+              "text": "GRACE HALL",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой зал назван в честь района Лондона?",
+          "options": [
+            {
+              "text": "GREENWICH",
+              "isCorrect": true
+            },
+            {
+              "text": "OUTLOFT",
+              "isCorrect": false
+            },
+            {
+              "text": "TOWN HALL",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какие три зала относятся к одному помещению?",
+          "options": [
+            {
+              "text": "TOWN HALL, SECRET, GRACE HALL",
+              "isCorrect": true
+            },
+            {
+              "text": "RATUSHA HALL, BLADE HALL, SKY HALL",
+              "isCorrect": false
+            },
+            {
+              "text": "ANDY HALL, ITTEN HALL, CINDY HALL",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "В каком году был основан LOFT HALL?",
+          "options": [
+            {
+              "text": "2010",
+              "isCorrect": false
+            },
+            {
+              "text": "2015",
+              "isCorrect": true
+            },
+            {
+              "text": "2016",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "LOFT#8 расположен в здании",
+          "options": [
+            {
+              "text": "Театра им. Чехова",
+              "isCorrect": false
+            },
+            {
+              "text": "Завода «Динамо»",
+              "isCorrect": false
+            },
+            {
+              "text": "ДК «Серп и Молот»",
+              "isCorrect": true
+            }
+          ]
+        },
+        {
+          "text": "LOFT#4 открылся в:",
+          "options": [
+            {
+              "text": "2015",
+              "isCorrect": false
+            },
+            {
+              "text": "2019",
+              "isCorrect": true
+            },
+            {
+              "text": "2023",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "В каком году LOFT HALL запустил LOFT#8?",
+          "options": [
+            {
+              "text": "2022",
+              "isCorrect": false
+            },
+            {
+              "text": "2024",
+              "isCorrect": true
+            },
+            {
+              "text": "2023",
+              "isCorrect": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "lofthall-history-hard",
+      "title": "Пространства и история LOFT HALL: сложный",
+      "category": "Пространства и история LOFT HALL",
+      "source": "tests",
+      "difficulty": "hard",
+      "weight": 3,
+      "passScore": 10,
+      "maxScore": 10,
+      "description": "Проверка знаний по пространствам и истории LOFT HALL.",
+      "questions": [
+        {
+          "text": "В каких залах есть качели?",
+          "options": [
+            {
+              "text": "ROTHSCHILD’S, MONTBLANC, ANDY, ITTEN",
+              "isCorrect": true
+            },
+            {
+              "text": "GRACE, SECRET, TOWN",
+              "isCorrect": false
+            },
+            {
+              "text": "LONG, BANKSY, MAHOGANY",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "В каких залах есть рабочие камины?",
+          "options": [
+            {
+              "text": "ROTHSCHILD’S, MORRISON, Villa Mr. Pinky, Mango",
+              "isCorrect": true
+            },
+            {
+              "text": "ROCKEFELLER’S , WOOD HALL, CROSS",
+              "isCorrect": false
+            },
+            {
+              "text": "GREENWICH, OUTLOFT, HOOKS",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой зал связан с серией постановочных фотографий «Кадры из фильмов без названия»?",
+          "options": [
+            {
+              "text": "CINDY HALL",
+              "isCorrect": true
+            },
+            {
+              "text": "MORRISON HALL",
+              "isCorrect": false
+            },
+            {
+              "text": "BANKSY HALL",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой зал LOFT#4 назван в честь художника поп-арта?",
+          "options": [
+            {
+              "text": "ANDY HALL",
+              "isCorrect": true
+            },
+            {
+              "text": "LONG HALL",
+              "isCorrect": false
+            },
+            {
+              "text": "ITTEN HALL",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой зал связан с продажей граффити за 750 тыс. евро?",
+          "options": [
+            {
+              "text": "BANKSY HALL",
+              "isCorrect": true
+            },
+            {
+              "text": "LONG HALL",
+              "isCorrect": false
+            },
+            {
+              "text": "CINDY HALL",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Первый электровоз СССР был выпущен на заводе LOFT#2-3 в:",
+          "options": [
+            {
+              "text": "1920",
+              "isCorrect": false
+            },
+            {
+              "text": "1932",
+              "isCorrect": true
+            },
+            {
+              "text": "1945",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Что производил завод на месте LOFT#2-3 до 1917 года?",
+          "options": [
+            {
+              "text": "Электрические генераторы",
+              "isCorrect": true
+            },
+            {
+              "text": "Автомобили",
+              "isCorrect": false
+            },
+            {
+              "text": "Тяговые электродвигатели для электровозов",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой стиль архитектуры характеризует здание LOFT#8?",
+          "options": [
+            {
+              "text": "Барокко",
+              "isCorrect": false
+            },
+            {
+              "text": "Классицизм",
+              "isCorrect": false
+            },
+            {
+              "text": "Конструктивизм",
+              "isCorrect": true
+            }
+          ]
+        },
+        {
+          "text": "Кто был архитектором здания LOFT#8?",
+          "options": [
+            {
+              "text": "Заха Хадид",
+              "isCorrect": false
+            },
+            {
+              "text": "Антонио Гауди",
+              "isCorrect": false
+            },
+            {
+              "text": "Игнатий Милинис",
+              "isCorrect": true
+            }
+          ]
+        },
+        {
+          "text": "Что производили на заводе LOFT#2-3 после 1932 года?",
+          "options": [
+            {
+              "text": "Мебель",
+              "isCorrect": false
+            },
+            {
+              "text": "Тяговые электродвигатели для электровозов",
+              "isCorrect": true
+            },
+            {
+              "text": "Электрические генераторы",
+              "isCorrect": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "menu-easy",
+      "title": "Оценка знаний по меню: легкий",
+      "category": "Оценка знаний по меню",
+      "source": "tests",
+      "difficulty": "easy",
+      "weight": 1,
+      "passScore": 10,
+      "maxScore": 10,
+      "description": "Меню еды, состав блюд и подача.",
+      "questions": [
+        {
+          "text": "Что означает кулинарный термин \"ростбиф\"?",
+          "options": [
+            {
+              "text": "Жареная целая вырезка говядины",
+              "isCorrect": true
+            },
+            {
+              "text": "Тушёная баранина",
+              "isCorrect": false
+            },
+            {
+              "text": "Варёная курица",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Как правильно определить блюдо \"тартар\"?",
+          "options": [
+            {
+              "text": "Мелко рубленное сырое мясо или рыба",
+              "isCorrect": true
+            },
+            {
+              "text": "Запечённые овощи",
+              "isCorrect": false
+            },
+            {
+              "text": "Варёные морепродукты",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Что такое \"канапе\" в кулинарии?",
+          "options": [
+            {
+              "text": "Маленькие бутерброды",
+              "isCorrect": true
+            },
+            {
+              "text": "Горячие первые блюда",
+              "isCorrect": false
+            },
+            {
+              "text": "Сладкие десерты",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой из этих терминов описывает \"прошутто\"?",
+          "options": [
+            {
+              "text": "Вяленый свиной окорок",
+              "isCorrect": true
+            },
+            {
+              "text": "Жареная говядина",
+              "isCorrect": false
+            },
+            {
+              "text": "Копчёная курица",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Что означает \"гуакамоле\"?",
+          "options": [
+            {
+              "text": "Соус из авокадо",
+              "isCorrect": true
+            },
+            {
+              "text": "Томатный соус",
+              "isCorrect": false
+            },
+            {
+              "text": "Сливочный соус",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Что из перечисленного наиболее точно описывает спринг-роллы?",
+          "options": [
+            {
+              "text": "Хрустящие рулетики в рисовой бумаге с начинкой",
+              "isCorrect": true
+            },
+            {
+              "text": "Обжаренные во фритюре пирожки с мясом",
+              "isCorrect": false
+            },
+            {
+              "text": "Запечённые в духовке овощные ломтики",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Что такое \"карпаччо\"?",
+          "options": [
+            {
+              "text": "Тонко нарезанное сырое мясо или рыба",
+              "isCorrect": true
+            },
+            {
+              "text": "Тушёное рагу",
+              "isCorrect": false
+            },
+            {
+              "text": "Жареные котлеты",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой термин описывает \"конфи\"?",
+          "options": [
+            {
+              "text": "Медленное томление в жире",
+              "isCorrect": true
+            },
+            {
+              "text": "Быстрая обжарка",
+              "isCorrect": false
+            },
+            {
+              "text": "Варка на пару",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Что означает \"бризоль\"?",
+          "options": [
+            {
+              "text": "Тонкий мясной рулет с начинкой",
+              "isCorrect": true
+            },
+            {
+              "text": "Жареный картофель",
+              "isCorrect": false
+            },
+            {
+              "text": "Овощное рагу",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Как правильно определить \"тартар\" из лосося?",
+          "options": [
+            {
+              "text": "Сырой мелко нарезанный лосось с приправами",
+              "isCorrect": true
+            },
+            {
+              "text": "Жареный лосось",
+              "isCorrect": false
+            },
+            {
+              "text": "Копчёный лосось",
+              "isCorrect": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "menu-middle",
+      "title": "Оценка знаний по меню: средний",
+      "category": "Оценка знаний по меню",
+      "source": "tests",
+      "difficulty": "middle",
+      "weight": 2,
+      "passScore": 10,
+      "maxScore": 10,
+      "description": "Меню еды, состав блюд и подача.",
+      "questions": [
+        {
+          "text": "Какой ингредиент НЕ входит в состав \"Гуакамоле\"?",
+          "options": [
+            {
+              "text": "Авокадо",
+              "isCorrect": false
+            },
+            {
+              "text": "Лайм",
+              "isCorrect": false
+            },
+            {
+              "text": "Мед",
+              "isCorrect": true
+            }
+          ]
+        },
+        {
+          "text": "Какой соус используется в \"Трюфеле Блю-чиз с грецким орехом\"?",
+          "options": [
+            {
+              "text": "Соус Песто",
+              "isCorrect": false
+            },
+            {
+              "text": "Медовый соус",
+              "isCorrect": true
+            },
+            {
+              "text": "Соус Терияки",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой аллерген входит в соус Тоннато?",
+          "options": [
+            {
+              "text": "Рыба",
+              "isCorrect": true
+            },
+            {
+              "text": "Молоко",
+              "isCorrect": false
+            },
+            {
+              "text": "Глютен",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой необычный ингредиент входит в «Тунец со сладким васаби и икрой тобико»?",
+          "options": [
+            {
+              "text": "Сгущенное молоко",
+              "isCorrect": true
+            },
+            {
+              "text": "Мед",
+              "isCorrect": false
+            },
+            {
+              "text": "Кокосовое молоко",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой соус является основным в «Копченом угре с битым огурцом»?",
+          "options": [
+            {
+              "text": "Унаги",
+              "isCorrect": true
+            },
+            {
+              "text": "Терияки",
+              "isCorrect": false
+            },
+            {
+              "text": "Соевый",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой ингредиент НЕ входит в \"Хумус с печенным перцем\"?",
+          "options": [
+            {
+              "text": "Нут",
+              "isCorrect": false
+            },
+            {
+              "text": "Тахини",
+              "isCorrect": false
+            },
+            {
+              "text": "Сыр Фета",
+              "isCorrect": true
+            }
+          ]
+        },
+        {
+          "text": "Какой аллерген может быть в блюде с соевым соусом?",
+          "options": [
+            {
+              "text": "Глютен",
+              "isCorrect": true
+            },
+            {
+              "text": "Орехи",
+              "isCorrect": false
+            },
+            {
+              "text": "Молочные продукты",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой аллерген присутствует в «Венской вафле с лососем и сливочным сыром»?",
+          "options": [
+            {
+              "text": "Глютен",
+              "isCorrect": true
+            },
+            {
+              "text": "Орехи",
+              "isCorrect": false
+            },
+            {
+              "text": "Моллюски",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой ингредиент делает «Гаспачо из томатов» острым?",
+          "options": [
+            {
+              "text": "Чили мини",
+              "isCorrect": true
+            },
+            {
+              "text": "Хрен",
+              "isCorrect": false
+            },
+            {
+              "text": "Имбирь",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой соус подается к \"Тако с лососем\"?",
+          "options": [
+            {
+              "text": "Гуакамоле",
+              "isCorrect": true
+            },
+            {
+              "text": "Соус Песто",
+              "isCorrect": false
+            },
+            {
+              "text": "Соус Терияки",
+              "isCorrect": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "menu-hard",
+      "title": "Оценка знаний по меню: сложный",
+      "category": "Оценка знаний по меню",
+      "source": "tests",
+      "difficulty": "hard",
+      "weight": 3,
+      "passScore": 10,
+      "maxScore": 10,
+      "description": "Меню еды, состав блюд и подача.",
+      "questions": [
+        {
+          "text": "Какой ингредиент НЕ входит в состав \"Артишока с вяленым томатом\"?",
+          "options": [
+            {
+              "text": "Тыква",
+              "isCorrect": false
+            },
+            {
+              "text": "Картофель",
+              "isCorrect": true
+            },
+            {
+              "text": "Уксус бальзамический",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой соус используется в \"Вяленом томате с муссом из козьего сыра\"?",
+          "options": [
+            {
+              "text": "Соус Песто",
+              "isCorrect": false
+            },
+            {
+              "text": "Медовый соус",
+              "isCorrect": false
+            },
+            {
+              "text": "Соевый соус",
+              "isCorrect": true
+            }
+          ]
+        },
+        {
+          "text": "Какой аллерген входит в соус Цезарь?",
+          "options": [
+            {
+              "text": "Рыба (анчоусы)",
+              "isCorrect": true
+            },
+            {
+              "text": "Орехи (кедровые)",
+              "isCorrect": false
+            },
+            {
+              "text": "Соя (в соевом соусе)",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой ингредиент НЕ входит в \"Гаспачо из томатов\"?",
+          "options": [
+            {
+              "text": "Огурцы",
+              "isCorrect": false
+            },
+            {
+              "text": "Лук шалот",
+              "isCorrect": false
+            },
+            {
+              "text": "Сливки",
+              "isCorrect": true
+            }
+          ]
+        },
+        {
+          "text": "Какой соус входит в состав \"Овощного крудите с соусом Блю чиз\"?",
+          "options": [
+            {
+              "text": "Сырный соус",
+              "isCorrect": true
+            },
+            {
+              "text": "Соус Песто",
+              "isCorrect": false
+            },
+            {
+              "text": "Соус Терияки",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой ингредиент НЕ входит в \"Спринг-ролле с креветкой и манго\"?",
+          "options": [
+            {
+              "text": "Рисовая бумага",
+              "isCorrect": false
+            },
+            {
+              "text": "Соус Свит чили",
+              "isCorrect": false
+            },
+            {
+              "text": "Сыр Пармезан",
+              "isCorrect": true
+            }
+          ]
+        },
+        {
+          "text": "Какой аллерген может быть в блюде с соусом Терияки?",
+          "options": [
+            {
+              "text": "Соя",
+              "isCorrect": true
+            },
+            {
+              "text": "Орехи",
+              "isCorrect": false
+            },
+            {
+              "text": "Молочные продукты",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какое блюдо безопасно для людей с аллергией на молочные продукты?",
+          "options": [
+            {
+              "text": "Хумус с печёным перцем",
+              "isCorrect": true
+            },
+            {
+              "text": "Профитроль с куриным муссом",
+              "isCorrect": false
+            },
+            {
+              "text": "Мусс из лосося",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой соус подается к \"Тако с угрем\"?",
+          "options": [
+            {
+              "text": "Ореховый соус",
+              "isCorrect": true
+            },
+            {
+              "text": "Соус Песто",
+              "isCorrect": false
+            },
+            {
+              "text": "Соус Терияки",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой ингредиент НЕ входит в \"Сельдь на картофеле черри\"?",
+          "options": [
+            {
+              "text": "Картофель",
+              "isCorrect": false
+            },
+            {
+              "text": "Лук маринованный",
+              "isCorrect": false
+            },
+            {
+              "text": "Соус Унаги",
+              "isCorrect": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "menu-veryhard",
+      "title": "Оценка знаний по меню: мега-сложный",
+      "category": "Оценка знаний по меню",
+      "source": "tests",
+      "difficulty": "veryhard",
+      "weight": 3,
+      "passScore": 20,
+      "maxScore": 20,
+      "description": "Меню еды, состав блюд и подача.",
+      "questions": [
+        {
+          "text": "Это блюдо французской кухни, где мясо медленно томится в большом количестве жира при низкой температуре, чтобы добиться невероятной нежности и сочности.",
+          "options": [
+            {
+              "text": "Галантин",
+              "isCorrect": false
+            },
+            {
+              "text": "Бефстроганов",
+              "isCorrect": false
+            },
+            {
+              "text": "Конфи",
+              "isCorrect": true
+            }
+          ]
+        },
+        {
+          "text": "Какое из этих блюд является вяленым мясом, а не запечённым?",
+          "options": [
+            {
+              "text": "Ростбиф",
+              "isCorrect": false
+            },
+            {
+              "text": "Брезаола",
+              "isCorrect": true
+            },
+            {
+              "text": "Буженина",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Два блюда из списка готовятся из фарша. Одно — восточные котлеты на гриле, другое — европейское холодное блюдо в желе. Что это за пара?",
+          "options": [
+            {
+              "text": "Кордон Блю и Рулле",
+              "isCorrect": false
+            },
+            {
+              "text": "Люля-кебаб и Галантин",
+              "isCorrect": true
+            },
+            {
+              "text": "Буженина и Жюльен",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какое блюдо представляет собой не пасту с соусом, а фаршированное тесто?",
+          "options": [
+            {
+              "text": "Фетучини Альфредо",
+              "isCorrect": false
+            },
+            {
+              "text": "Равиоли",
+              "isCorrect": true
+            },
+            {
+              "text": "Паста Помодоро",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "\"Каре\" — это термин, обозначающий набор рёбер и прилегающее к ним мясо. Каре какого животного упоминается в списке как премиальная подача?",
+          "options": [
+            {
+              "text": "Свиньи",
+              "isCorrect": false
+            },
+            {
+              "text": "Ягнёнка",
+              "isCorrect": true
+            },
+            {
+              "text": "Теленка",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какое блюдо предполагает, что мясо (говядина) будет подано с розовой, непрожаренной серединой?",
+          "options": [
+            {
+              "text": "Брезаола",
+              "isCorrect": false
+            },
+            {
+              "text": "Ростбиф",
+              "isCorrect": true
+            },
+            {
+              "text": "Люля-кебаб",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Креветка «Катаифи» отличается от «рваной креветки» тем, что:",
+          "options": [
+            {
+              "text": "Подается сырой",
+              "isCorrect": false
+            },
+            {
+              "text": "Имеет ферментированный вкус",
+              "isCorrect": false
+            },
+            {
+              "text": "Завернута в хрустящую лапку",
+              "isCorrect": true
+            }
+          ]
+        },
+        {
+          "text": "Соус «Понзу» и стиль «Том Ям» объединяет наличие:",
+          "options": [
+            {
+              "text": "Грибного аромата",
+              "isCorrect": false
+            },
+            {
+              "text": "Копчёного вкуса",
+              "isCorrect": false
+            },
+            {
+              "text": "Кислых нот",
+              "isCorrect": true
+            }
+          ]
+        },
+        {
+          "text": "Какое блюдо по своей сути является мясной (или рыбной) начинкой, завернутой в тонкий блин?",
+          "options": [
+            {
+              "text": "Кесадилья",
+              "isCorrect": false
+            },
+            {
+              "text": "Бефстроганов в крепсе",
+              "isCorrect": true
+            },
+            {
+              "text": "Штрудель",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "«Бриошь» и «Венская вафля» в контексте этого списка могут объединяться тем, что:",
+          "options": [
+            {
+              "text": "Это виды хлеба для бутербродов",
+              "isCorrect": false
+            },
+            {
+              "text": "Основа для других ингридиентов",
+              "isCorrect": true
+            },
+            {
+              "text": "Это несладкая выпечка",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какое блюдо готовится в порционных формочках и содержит курицу, грибы и сыр под сливочным соусом?",
+          "options": [
+            {
+              "text": "Кордон Блю",
+              "isCorrect": false
+            },
+            {
+              "text": "Жюльен",
+              "isCorrect": true
+            },
+            {
+              "text": "Рулле",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "«Гирос» и «Кесадилья» — это схожие по концепции блюда, так как оба представляют собой:",
+          "options": [
+            {
+              "text": "Варёное мясо с гарниром",
+              "isCorrect": false
+            },
+            {
+              "text": "Начинку, завернутую в тесто/лепёшку",
+              "isCorrect": true
+            },
+            {
+              "text": "Жареные во фритюре пирожки",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "«Черное куриное филе» скорее всего приобретает свой цвет из-за:",
+          "options": [
+            {
+              "text": "Длительного копчения",
+              "isCorrect": false
+            },
+            {
+              "text": "Пищевого угля или соевого соуса",
+              "isCorrect": true
+            },
+            {
+              "text": "Обжига на открытом огне",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какое блюдо, в отличие от остальных, не является птицей или блюдом из мяса птицы, а представляет собой способ термической обработки или нарезки?",
+          "options": [
+            {
+              "text": "Конфи",
+              "isCorrect": true
+            },
+            {
+              "text": "Галантин",
+              "isCorrect": false
+            },
+            {
+              "text": "Кордон блю",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "«Филе эсколара» — это филе:",
+          "options": [
+            {
+              "text": "Крупного тунца",
+              "isCorrect": false
+            },
+            {
+              "text": "Деликатесной белой рыбы",
+              "isCorrect": true
+            },
+            {
+              "text": "Морского гребешка",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "«Тунец с соусом Конфи» — это блюдо, где соус «конфи» приготовлен из:",
+          "options": [
+            {
+              "text": "Томатов и чеснока",
+              "isCorrect": false
+            },
+            {
+              "text": "Ароматного масла",
+              "isCorrect": true
+            },
+            {
+              "text": "Сливок и белого вина",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какое блюдо НЕ является традиционно европейским?",
+          "options": [
+            {
+              "text": "Фетучини Альфредо",
+              "isCorrect": false
+            },
+            {
+              "text": "Люля-кебаб",
+              "isCorrect": true
+            },
+            {
+              "text": "Каре ягненка",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "«Штрудель» в данном контексте — это не сладкая выпечка с яблоками, а:",
+          "options": [
+            {
+              "text": "Жареный пирог с мясом",
+              "isCorrect": false
+            },
+            {
+              "text": "Слоёное тесто с солёной начинкой",
+              "isCorrect": true
+            },
+            {
+              "text": "Запечённая паста",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Блюдо «Лосось ким-чи» сочетает в себе скандинавский продукт и азиатскую технику, которая подразумевает:",
+          "options": [
+            {
+              "text": "Копчение",
+              "isCorrect": false
+            },
+            {
+              "text": "Ферментацию",
+              "isCorrect": true
+            },
+            {
+              "text": "Вяление",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "«Гребешки с трюфельным соусом» — это блюдо, где главный акцент сделан на сочетании:",
+          "options": [
+            {
+              "text": "Плотной рыбы и кислого соуса",
+              "isCorrect": false
+            },
+            {
+              "text": "Моллюска и орехово-грибного аромата",
+              "isCorrect": true
+            },
+            {
+              "text": "Хрустящей корочки и сливочного вкуса",
+              "isCorrect": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "alcohol-easy",
+      "title": "Алкоголь и его история: легкий",
+      "category": "Алкоголь и его история",
+      "source": "tests",
+      "difficulty": "easy",
+      "weight": 1,
+      "passScore": 10,
+      "maxScore": 10,
+      "description": "История алкоголя и базовая теория напитков.",
+      "questions": [
+        {
+          "text": "Что входит в категорию дижестивов?",
+          "options": [
+            {
+              "text": "Коньяк, виски, чай, кофе",
+              "isCorrect": true
+            },
+            {
+              "text": "Просекко и шампанское",
+              "isCorrect": false
+            },
+            {
+              "text": "Сок и лимонад",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какие напитки подают в начале трапезы для возбуждения аппетита?",
+          "options": [
+            {
+              "text": "Дижестивы",
+              "isCorrect": false
+            },
+            {
+              "text": "Аперитивы",
+              "isCorrect": true
+            },
+            {
+              "text": "Десертные вина",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой шаг в презентации вина выполняется первым?",
+          "options": [
+            {
+              "text": "Дегустация гостя",
+              "isCorrect": false
+            },
+            {
+              "text": "Показ этикетки",
+              "isCorrect": true
+            },
+            {
+              "text": "Откупоривание бутылки",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой регион производит коньяк?",
+          "options": [
+            {
+              "text": "Бургундия",
+              "isCorrect": false
+            },
+            {
+              "text": "Шампань",
+              "isCorrect": false
+            },
+            {
+              "text": "Коньяк (регион во Франции)",
+              "isCorrect": true
+            }
+          ]
+        },
+        {
+          "text": "Что такое «Портвейн»?",
+          "options": [
+            {
+              "text": "Красное креплёное вино",
+              "isCorrect": true
+            },
+            {
+              "text": "Игристое вино",
+              "isCorrect": false
+            },
+            {
+              "text": "Десертное вино",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой бокал традиционно используется для подачи шампанского?",
+          "options": [
+            {
+              "text": "Бокал-тюльпан",
+              "isCorrect": false
+            },
+            {
+              "text": "Шарообразный бокал",
+              "isCorrect": false
+            },
+            {
+              "text": "Узкий высокий флюте",
+              "isCorrect": true
+            }
+          ]
+        },
+        {
+          "text": "При какой температуре подают шампанское?",
+          "options": [
+            {
+              "text": "2-4°C",
+              "isCorrect": false
+            },
+            {
+              "text": "6-8°C",
+              "isCorrect": true
+            },
+            {
+              "text": "10-12°C",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "В каком бокале подают бренди?",
+          "options": [
+            {
+              "text": "Снифтер (бокал с широким дном)",
+              "isCorrect": true
+            },
+            {
+              "text": "Бокал для мартини",
+              "isCorrect": false
+            },
+            {
+              "text": "Флюте",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой бокал подходит для подачи виски?",
+          "options": [
+            {
+              "text": "Олд-фэшн (рокс)",
+              "isCorrect": true
+            },
+            {
+              "text": "Бокал-тюльпан",
+              "isCorrect": false
+            },
+            {
+              "text": "Снифтер",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Почему шампанское дороже Просекко?",
+          "options": [
+            {
+              "text": "Вторичной ферментация",
+              "isCorrect": true
+            },
+            {
+              "text": "Используется дорогой виноград",
+              "isCorrect": false
+            },
+            {
+              "text": "Из-за ручного сбора ягод",
+              "isCorrect": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "alcohol-middle",
+      "title": "Алкоголь и его история: средний",
+      "category": "Алкоголь и его история",
+      "source": "tests",
+      "difficulty": "middle",
+      "weight": 2,
+      "passScore": 10,
+      "maxScore": 10,
+      "description": "История алкоголя и базовая теория напитков.",
+      "questions": [
+        {
+          "text": "Из чего делают джин?",
+          "options": [
+            {
+              "text": "Солода и ягод можжевельника",
+              "isCorrect": true
+            },
+            {
+              "text": "Сахарного тростника и пряностей",
+              "isCorrect": false
+            },
+            {
+              "text": "Из винограда и трав",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Из чего делают бренди?",
+          "options": [
+            {
+              "text": "Из зерновых",
+              "isCorrect": false
+            },
+            {
+              "text": "Из перебродившего винограда",
+              "isCorrect": true
+            },
+            {
+              "text": "Из агавы",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Чем отличается шампанское от других игристых вин?",
+          "options": [
+            {
+              "text": "Производят в Италии",
+              "isCorrect": false
+            },
+            {
+              "text": "Производят во Франции",
+              "isCorrect": true
+            },
+            {
+              "text": "В нём нет пузырьков",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Из чего производят ром?",
+          "options": [
+            {
+              "text": "Из ячменя",
+              "isCorrect": false
+            },
+            {
+              "text": "Из сахарного тростника",
+              "isCorrect": true
+            },
+            {
+              "text": "Из винограда",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой сорт винограда чаще используется для производства красного вина?",
+          "options": [
+            {
+              "text": "Шардоне",
+              "isCorrect": false
+            },
+            {
+              "text": "Каберне Совиньон",
+              "isCorrect": true
+            },
+            {
+              "text": "Рислинг",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой сорт винограда используется для белого вина?",
+          "options": [
+            {
+              "text": "Мерло",
+              "isCorrect": false
+            },
+            {
+              "text": "Совиньон Блан",
+              "isCorrect": true
+            },
+            {
+              "text": "Пино Нуар",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой напиток делают из агавы?",
+          "options": [
+            {
+              "text": "Текилу",
+              "isCorrect": true
+            },
+            {
+              "text": "Виски",
+              "isCorrect": false
+            },
+            {
+              "text": "Джин",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой сорт винограда используется для производства Просекко?",
+          "options": [
+            {
+              "text": "Глера",
+              "isCorrect": true
+            },
+            {
+              "text": "Шардоне",
+              "isCorrect": false
+            },
+            {
+              "text": "Пино Нуар",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой напиток НЕ является игристым вином?",
+          "options": [
+            {
+              "text": "Просекко",
+              "isCorrect": false
+            },
+            {
+              "text": "Креман",
+              "isCorrect": false
+            },
+            {
+              "text": "Херес",
+              "isCorrect": true
+            }
+          ]
+        },
+        {
+          "text": "При какой температуре обычно подают красное вино?",
+          "options": [
+            {
+              "text": "8-12°C",
+              "isCorrect": false
+            },
+            {
+              "text": "16-18°C",
+              "isCorrect": true
+            },
+            {
+              "text": "4-6°C",
+              "isCorrect": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "alcohol-hard",
+      "title": "Алкоголь и его история: сложный",
+      "category": "Алкоголь и его история",
+      "source": "tests",
+      "difficulty": "hard",
+      "weight": 3,
+      "passScore": 10,
+      "maxScore": 10,
+      "description": "История алкоголя и базовая теория напитков.",
+      "questions": [
+        {
+          "text": "Какой регион славится производством вин из сорта Шардоне?",
+          "options": [
+            {
+              "text": "Бордо",
+              "isCorrect": false
+            },
+            {
+              "text": "Бургундия",
+              "isCorrect": true
+            },
+            {
+              "text": "Риоха",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Как называется метод вторичной ферментации в бутылке для шампанского?",
+          "options": [
+            {
+              "text": "Шарма-метод",
+              "isCorrect": false
+            },
+            {
+              "text": "Классический метод",
+              "isCorrect": true
+            },
+            {
+              "text": "Метод ансестральной ферментации",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Чем отличается виски от бурбона?",
+          "options": [
+            {
+              "text": "Бурбон делают только в США из кукурузы",
+              "isCorrect": true
+            },
+            {
+              "text": "Виски всегда выдерживают в дубовых бочках",
+              "isCorrect": false
+            },
+            {
+              "text": "Бурбон делают из ржи",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Почему насыщенные красные вина (например, Каберне Совиньон) подают при более высокой температуре, чем лёгкие (например, Пино Нуар)?",
+          "options": [
+            {
+              "text": "Чтобы смягчить танины",
+              "isCorrect": false
+            },
+            {
+              "text": "Чтобы раскрыть сложный аромат",
+              "isCorrect": true
+            },
+            {
+              "text": "Чтобы уменьшить крепость",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой виски выдерживают в обожжённых дубовых бочках из-под хереса?",
+          "options": [
+            {
+              "text": "Японский виски",
+              "isCorrect": false
+            },
+            {
+              "text": "Шотландский скотч",
+              "isCorrect": true
+            },
+            {
+              "text": "Ирландский виски",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Что такое кальвадос?",
+          "options": [
+            {
+              "text": "Яблочный; грушевый бренди из Нормандии",
+              "isCorrect": true
+            },
+            {
+              "text": "Виноградный дистиллят из Бордо",
+              "isCorrect": false
+            },
+            {
+              "text": "Зерновой дистиллят из Шотландии",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "В какой бокал подают кальвадос для раскрытия аромата?",
+          "options": [
+            {
+              "text": "Снифтер",
+              "isCorrect": true
+            },
+            {
+              "text": "Узкий высокий флюте",
+              "isCorrect": false
+            },
+            {
+              "text": "Бокал для мартини",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Из каких сортов винограда традиционно производят шампанское?",
+          "options": [
+            {
+              "text": "Шардоне, Пино Нуар, Пино Менье",
+              "isCorrect": true
+            },
+            {
+              "text": "Каберне Совиньон, Мерло, Карменер",
+              "isCorrect": false
+            },
+            {
+              "text": "Совиньон Блан, Рислинг, Мускат",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Чем отличается арманьяк от коньяка?",
+          "options": [
+            {
+              "text": "Коньяк  дистиллируют дважды",
+              "isCorrect": true
+            },
+            {
+              "text": "Арманьяк производят из сорта Юни Блан",
+              "isCorrect": false
+            },
+            {
+              "text": "Арманьяк выдерживают в бочках из каштана",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой напиток производят из ферментированного сока агавы в регионе Халиско (Мексика) без добавления сахара?",
+          "options": [
+            {
+              "text": "Мескаль",
+              "isCorrect": false
+            },
+            {
+              "text": "Текила 100% агавы",
+              "isCorrect": true
+            },
+            {
+              "text": "Пульке",
+              "isCorrect": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "loft-4-easy",
+      "title": "Пространства LOFT #4: легкий",
+      "category": "Пространства LOFT #4",
+      "source": "tests",
+      "difficulty": "easy",
+      "weight": 1,
+      "passScore": 10,
+      "maxScore": 10,
+      "description": "Проверка знаний по площадке LOFT #4.",
+      "questions": [
+        {
+          "text": "На какой территории находится LOFT#4?",
+          "options": [
+            {
+              "text": "Технопарк",
+              "isCorrect": false
+            },
+            {
+              "text": "ЗИЛ",
+              "isCorrect": true
+            },
+            {
+              "text": "Красный Октябрь",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Сколько залов в LOFT#4?",
+          "options": [
+            {
+              "text": "5",
+              "isCorrect": false
+            },
+            {
+              "text": "7",
+              "isCorrect": true
+            },
+            {
+              "text": "9",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Как называется входная зона с садом и ретро-гирляндами?",
+          "options": [
+            {
+              "text": "STORIES",
+              "isCorrect": true
+            },
+            {
+              "text": "LOST GARDEN",
+              "isCorrect": false
+            },
+            {
+              "text": "ITTEN HALL",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой зал назван в честь художника Пита Мондриана?",
+          "options": [
+            {
+              "text": "MONDRIAN HALL",
+              "isCorrect": true
+            },
+            {
+              "text": "BANKSY HALL",
+              "isCorrect": false
+            },
+            {
+              "text": "LONG HALL",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "В каком зале есть окно в форме ромба?",
+          "options": [
+            {
+              "text": "ANDY HALL",
+              "isCorrect": true
+            },
+            {
+              "text": "CINDY HALL",
+              "isCorrect": false
+            },
+            {
+              "text": "MORRISON HALL",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой зал подойдет для выставки современного искусства?",
+          "options": [
+            {
+              "text": "MORRISON HALL",
+              "isCorrect": false
+            },
+            {
+              "text": "BANKSY HALL",
+              "isCorrect": true
+            },
+            {
+              "text": "MONDRIAN HALL",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "В каком зале есть действующий камин и винтажная лестница?",
+          "options": [
+            {
+              "text": "BANKSY HALL",
+              "isCorrect": false
+            },
+            {
+              "text": "MORRISON HALL",
+              "isCorrect": true
+            },
+            {
+              "text": "LONG HALL",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой элемент есть в ITTEN HALL?",
+          "options": [
+            {
+              "text": "Качели около бара",
+              "isCorrect": true
+            },
+            {
+              "text": "Камин",
+              "isCorrect": false
+            },
+            {
+              "text": "Смотровая зона",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой зал выходит на балкон с видом на LOST GARDEN?",
+          "options": [
+            {
+              "text": "BANKSY HALL",
+              "isCorrect": true
+            },
+            {
+              "text": "MONDRIAN HALL",
+              "isCorrect": false
+            },
+            {
+              "text": "CINDY HALL",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Что украшает террасу STORIES?",
+          "options": [
+            {
+              "text": "Неоновые вывески",
+              "isCorrect": false
+            },
+            {
+              "text": "Ретро-гирлянды",
+              "isCorrect": true
+            },
+            {
+              "text": "Видеостены",
+              "isCorrect": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "loft-4-middle",
+      "title": "Пространства LOFT #4: средний",
+      "category": "Пространства LOFT #4",
+      "source": "tests",
+      "difficulty": "middle",
+      "weight": 2,
+      "passScore": 10,
+      "maxScore": 10,
+      "description": "Проверка знаний по площадке LOFT #4.",
+      "questions": [
+        {
+          "text": "Какой материал преобладает в отделке ANDY HALL?",
+          "options": [
+            {
+              "text": "Бетон с граффити",
+              "isCorrect": false
+            },
+            {
+              "text": "Карамельный кирпич с тропическим орнаментом",
+              "isCorrect": true
+            },
+            {
+              "text": "Деревянные панели в стиле шале",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой элемент интерьера MONDRIAN HALL отсылает к творчеству Пита Мондриана?",
+          "options": [
+            {
+              "text": "Глянцевые полы, напоминающие палитру художника",
+              "isCorrect": true
+            },
+            {
+              "text": "Стены в стиле дриппинга (капельная техника)",
+              "isCorrect": false
+            },
+            {
+              "text": "Черно-белые фотографии",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой зал сочетает кракелюрные стены и тропические вентиляторы?",
+          "options": [
+            {
+              "text": "BANKSY HALL",
+              "isCorrect": false
+            },
+            {
+              "text": "MORRISON HALL",
+              "isCorrect": true
+            },
+            {
+              "text": "LONG HALL",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Что является главной особенностью потолка в ANDY HALL?",
+          "options": [
+            {
+              "text": "Зеркальная поверхность",
+              "isCorrect": false
+            },
+            {
+              "text": "Геометрические формы с индустриальными люстрами",
+              "isCorrect": true
+            },
+            {
+              "text": "Фреска с облаками",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какая деталь в BANKSY HALL создает эффект \"потертого времени\"?",
+          "options": [
+            {
+              "text": "Патина на металлических элементах",
+              "isCorrect": true
+            },
+            {
+              "text": "Голографические стены",
+              "isCorrect": false
+            },
+            {
+              "text": "Неоновые граффити",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Что отличает зал ITTEN HALL от других зон LOFT#4?",
+          "options": [
+            {
+              "text": "Атриумный бар с качелями и тропическими лампами",
+              "isCorrect": true
+            },
+            {
+              "text": "Подвесные стеклянные капсулы",
+              "isCorrect": false
+            },
+            {
+              "text": "Декоративные лампы накаливания",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой стиль интерьера НЕ используется в LOST GARDEN?",
+          "options": [
+            {
+              "text": "Голландский",
+              "isCorrect": false
+            },
+            {
+              "text": "Китайский",
+              "isCorrect": false
+            },
+            {
+              "text": "Скандинавский",
+              "isCorrect": true
+            }
+          ]
+        },
+        {
+          "text": "Какой зал имеет выход на веранду с \"амбарной разноцветной доской\"?",
+          "options": [
+            {
+              "text": "LONG HALL",
+              "isCorrect": true
+            },
+            {
+              "text": "CINDY HALL",
+              "isCorrect": false
+            },
+            {
+              "text": "MONDRIAN HALL",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой элемент декора встречается и в STORIES, и в LOST GARDEN?",
+          "options": [
+            {
+              "text": "Арт-объекты со всего мира",
+              "isCorrect": true
+            },
+            {
+              "text": "Витражные окна",
+              "isCorrect": false
+            },
+            {
+              "text": "Интерактивные проекции",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "В каком зале можно увидеть \"алую стену с японскими журавлями\"?",
+          "options": [
+            {
+              "text": "ITTEN HALL",
+              "isCorrect": true
+            },
+            {
+              "text": "BANKSY HALL",
+              "isCorrect": false
+            },
+            {
+              "text": "ANDY HALL",
+              "isCorrect": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "loft-4-hard",
+      "title": "Пространства LOFT #4: сложный",
+      "category": "Пространства LOFT #4",
+      "source": "tests",
+      "difficulty": "hard",
+      "weight": 3,
+      "passScore": 10,
+      "maxScore": 10,
+      "description": "Проверка знаний по площадке LOFT #4.",
+      "questions": [
+        {
+          "text": "Какой конкретный вид орнамента использован в отделке стен ANDY HALL?",
+          "options": [
+            {
+              "text": "Меандр (греческий орнамент)",
+              "isCorrect": false
+            },
+            {
+              "text": "Тропический орнамент с пальмовыми листьями",
+              "isCorrect": true
+            },
+            {
+              "text": "Арабская вязь",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой архитектурный стиль преобладает в оформлении MORRISON HALL?",
+          "options": [
+            {
+              "text": "Индустриальный лофт с элементами ар-деко",
+              "isCorrect": false
+            },
+            {
+              "text": "Винтажный индастриал с кракелюрными стенами",
+              "isCorrect": true
+            },
+            {
+              "text": "Минимализм с японскими мотивами",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой конкретный вид плитки использован в оформлении камина MORRISON HALL?",
+          "options": [
+            {
+              "text": "Метлахская плитка",
+              "isCorrect": false
+            },
+            {
+              "text": "Плитка ручной работы в стиле \"ар-нуво\"",
+              "isCorrect": true
+            },
+            {
+              "text": "Испанская терракотовая плитка",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какие именно растения преобладают в английской зоне LOST GARDEN?",
+          "options": [
+            {
+              "text": "Самшиты и розы",
+              "isCorrect": true
+            },
+            {
+              "text": "Суккуленты и кактусы",
+              "isCorrect": false
+            },
+            {
+              "text": "Бамбук и сакура",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой конкретный вид патины использован в оформлении BANKSY HALL?",
+          "options": [
+            {
+              "text": "Зеленоватая патина (как на медных крышах)",
+              "isCorrect": true
+            },
+            {
+              "text": "Красно-коричневая (оксид железа)",
+              "isCorrect": false
+            },
+            {
+              "text": "Черная (сульфидная)",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой конкретный архитектурный элемент потолка является особенностью LONG HALL?",
+          "options": [
+            {
+              "text": "Кессонный потолок",
+              "isCorrect": false
+            },
+            {
+              "text": "Лепнина в персиковых и темно-синих тонах",
+              "isCorrect": true
+            },
+            {
+              "text": "Зеркальный свод",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой конкретный вид витражей использован в BANKSY HALL?",
+          "options": [
+            {
+              "text": "В стиле Тиффани",
+              "isCorrect": false
+            },
+            {
+              "text": "Готические витражи",
+              "isCorrect": false
+            },
+            {
+              "text": "Абстрактные витражи с золотыми вкраплениями",
+              "isCorrect": true
+            }
+          ]
+        },
+        {
+          "text": "Какой конкретный стиль мебели используется на террасе STORIES?",
+          "options": [
+            {
+              "text": "Ретро-мебель 60-х годов",
+              "isCorrect": false
+            },
+            {
+              "text": "Современная урбан-мебель с элементами ар-деко",
+              "isCorrect": true
+            },
+            {
+              "text": "Мебель в колониальном стиле",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой конкретный вид мансардного потолка использован в BANKSY HALL?",
+          "options": [
+            {
+              "text": "Двускатный с деревянными балками",
+              "isCorrect": false
+            },
+            {
+              "text": "С лепниной по периметру",
+              "isCorrect": true
+            },
+            {
+              "text": "Купольный с витражной вставкой",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой конкретный стиль уличного освещения используется в LOST GARDEN?",
+          "options": [
+            {
+              "text": "Неоклассические фонари",
+              "isCorrect": false
+            },
+            {
+              "text": "Параметрические светильники с неоновыми элементами",
+              "isCorrect": true
+            },
+            {
+              "text": "Японские бумажные фонари",
+              "isCorrect": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "cheese-easy",
+      "title": "Сырный эксперт: легкий",
+      "category": "Сырный эксперт",
+      "source": "tests",
+      "difficulty": "easy",
+      "weight": 1,
+      "passScore": 20,
+      "maxScore": 20,
+      "description": "Базовая проверка знаний по сырам.",
+      "questions": [
+        {
+          "text": "Этот сыр известен своими крупными «дырками» и сладковатым, ореховым вкусом. Он не является швейцарским, но часто ассоциируется с подобным стилем.",
+          "options": [
+            {
+              "text": "Грюйер",
+              "isCorrect": false
+            },
+            {
+              "text": "Грана Падано",
+              "isCorrect": false
+            },
+            {
+              "text": "Маасдам",
+              "isCorrect": true
+            }
+          ]
+        },
+        {
+          "text": "Какой из этих голубых сыров производится из овечьего молока?",
+          "options": [
+            {
+              "text": "Дор Блю",
+              "isCorrect": false
+            },
+            {
+              "text": "Рокфорти",
+              "isCorrect": true
+            },
+            {
+              "text": "Оба варианта верны",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Пармезан и Грана Падано часто сравнивают. Какое утверждение о них будет верным, исходя из описания?",
+          "options": [
+            {
+              "text": "Одинаковая стоимость и выдержка",
+              "isCorrect": false
+            },
+            {
+              "text": "Грана Падано мягче Пармезана",
+              "isCorrect": true
+            },
+            {
+              "text": "ГП из Швейцарии, Пармезан из Германии",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой сыр, по описанию, специально создан для плавления и является идеальной основой для хачапури?",
+          "options": [
+            {
+              "text": "Адыгейский",
+              "isCorrect": false
+            },
+            {
+              "text": "Сулугуни",
+              "isCorrect": true
+            },
+            {
+              "text": "Чечил",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "«Качотта с пажитником/трюфелем» — это итальянский сыр, который характеризуется:",
+          "options": [
+            {
+              "text": "Солёностью и рассольной текстурой",
+              "isCorrect": false
+            },
+            {
+              "text": "Ароматом орехов или грибов",
+              "isCorrect": true
+            },
+            {
+              "text": "Плесенью и пряным вкусом",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой сыр НЕ является рассольным?",
+          "options": [
+            {
+              "text": "Брынза",
+              "isCorrect": false
+            },
+            {
+              "text": "Чеддер",
+              "isCorrect": true
+            },
+            {
+              "text": "Чечил",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Французский сыр с белой плесневой корочкой и нежной, почти текучей текстурой внутри — это:",
+          "options": [
+            {
+              "text": "Грюйер",
+              "isCorrect": false
+            },
+            {
+              "text": "Рокфорти",
+              "isCorrect": false
+            },
+            {
+              "text": "Камамбер",
+              "isCorrect": true
+            }
+          ]
+        },
+        {
+          "text": "«Чечил» легко отличить от других сыров по его уникальной:",
+          "options": [
+            {
+              "text": "Ярко-оранжевому цвету",
+              "isCorrect": false
+            },
+            {
+              "text": "Отсутствию соли",
+              "isCorrect": false
+            },
+            {
+              "text": "Форме",
+              "isCorrect": true
+            }
+          ]
+        },
+        {
+          "text": "Если в рецепте требуется сыр с выраженным ароматом чёрного трюфеля, какой из перечисленных лучше всего подойдет?",
+          "options": [
+            {
+              "text": "Овечий выдержанный",
+              "isCorrect": false
+            },
+            {
+              "text": "Коровий с трюфелем",
+              "isCorrect": true
+            },
+            {
+              "text": "Камамбер",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой сыр, согласно описанию, отлично подходит не только для сырной тарелки, но и для жарки и запекания, сохраняя форму?",
+          "options": [
+            {
+              "text": "Брынза",
+              "isCorrect": false
+            },
+            {
+              "text": "Адыгейский",
+              "isCorrect": true
+            },
+            {
+              "text": "Чечил",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Швейцарский твёрдый сыр с орехово-сладкими нотами — это:",
+          "options": [
+            {
+              "text": "Пармезан",
+              "isCorrect": false
+            },
+            {
+              "text": "Грюйер",
+              "isCorrect": true
+            },
+            {
+              "text": "Чеддер",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "«Выдержанный Чеддер» и «Выдержанный коровий» сыр объединяет то, что у них могут быть:",
+          "options": [
+            {
+              "text": "Крупные дырки по всей массе",
+              "isCorrect": false
+            },
+            {
+              "text": "Кристаллики соли в текстуре",
+              "isCorrect": true
+            },
+            {
+              "text": "Текучая кремовая середина",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой сыр НЕ относится к категории твёрдых выдержанных?",
+          "options": [
+            {
+              "text": "Пармезан",
+              "isCorrect": false
+            },
+            {
+              "text": "Камамбер",
+              "isCorrect": true
+            },
+            {
+              "text": "Грана Падано",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "«Яркий сыр с землистыми нотами, хорошо сочетается с фруктами» — это описание:",
+          "options": [
+            {
+              "text": "Овечьего выдержанного",
+              "isCorrect": false
+            },
+            {
+              "text": "Козьего выдержанного",
+              "isCorrect": true
+            },
+            {
+              "text": "Дор Блю",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Немецкий голубой сыр со сливочной текстурой — это:",
+          "options": [
+            {
+              "text": "Рокфорти",
+              "isCorrect": false
+            },
+            {
+              "text": "Дор Блю",
+              "isCorrect": true
+            },
+            {
+              "text": "Качотта",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Какой сыр из списка является волокнистым?",
+          "options": [
+            {
+              "text": "Сулугуни",
+              "isCorrect": false
+            },
+            {
+              "text": "Чечил",
+              "isCorrect": true
+            },
+            {
+              "text": "Чеддер жёлтый",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "«Брынза» и «Сулугуни» объединены тем, что оба:",
+          "options": [
+            {
+              "text": "Имеют ореховое послевкусие",
+              "isCorrect": false
+            },
+            {
+              "text": "Являются рассольными сырами",
+              "isCorrect": true
+            },
+            {
+              "text": "Производятся только из овечьего молока",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "«Чеддер жёлтый», в отличие от просто «Чеддера», в данном контексте характеризуется как:",
+          "options": [
+            {
+              "text": "Более выдержанный и зернистый",
+              "isCorrect": false
+            },
+            {
+              "text": "Плавкий сыр для сэндвичей",
+              "isCorrect": true
+            },
+            {
+              "text": "Сыр с голубой плесенью",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Если на сырной тарелке лежит сыр с насыщенным вкусом и ароматными, солоноватыми нотами, сделанный из овечьего молока, это, скорее всего:",
+          "options": [
+            {
+              "text": "Овечий выдержанный",
+              "isCorrect": false
+            },
+            {
+              "text": "Любой из двух вариантов",
+              "isCorrect": true
+            },
+            {
+              "text": "Рокфорти",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Итальянский сыр, который может быть ароматизирован пажитником, известным своим ореховым ароматом, — это:",
+          "options": [
+            {
+              "text": "Грана Падано",
+              "isCorrect": false
+            },
+            {
+              "text": "Качотта",
+              "isCorrect": true
+            },
+            {
+              "text": "Пармезан",
+              "isCorrect": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "service-easy",
+      "title": "Банкетное обслуживание: легкий",
+      "category": "Банкетное обслуживание",
+      "source": "tests",
+      "difficulty": "easy",
+      "weight": 1,
+      "passScore": 10,
+      "maxScore": 10,
+      "description": "Дополнительный раздел по обслуживанию.",
+      "questions": [
+        {
+          "text": "Как официант должен стоять при встрече гостей?",
+          "options": [
+            {
+              "text": "Слева от стола",
+              "isCorrect": false
+            },
+            {
+              "text": "Справа от входа",
+              "isCorrect": false
+            },
+            {
+              "text": "Справа от стола, лицом ко входу",
+              "isCorrect": true
+            }
+          ]
+        },
+        {
+          "text": "На какую руку надевают ручник перед подачей напитков?",
+          "options": [
+            {
+              "text": "На правую",
+              "isCorrect": false
+            },
+            {
+              "text": "На левую",
+              "isCorrect": true
+            },
+            {
+              "text": "Не надевают",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "В какие бокалы наливают безалкогольные напитки?",
+          "options": [
+            {
+              "text": "В бокалы для шампанского",
+              "isCorrect": false
+            },
+            {
+              "text": "В белые винные бокалы",
+              "isCorrect": false
+            },
+            {
+              "text": "В красные винные бокалы",
+              "isCorrect": true
+            }
+          ]
+        },
+        {
+          "text": "Какой напиток предлагают гостям сразу после посадки?",
+          "options": [
+            {
+              "text": "Кофе",
+              "isCorrect": false
+            },
+            {
+              "text": "Воду",
+              "isCorrect": true
+            },
+            {
+              "text": "Вино",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "На сколько заполняют бокалы безалкогольными напитками?",
+          "options": [
+            {
+              "text": "Полностью",
+              "isCorrect": false
+            },
+            {
+              "text": "На 1/3 объема",
+              "isCorrect": true
+            },
+            {
+              "text": "Наполовину",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "С какой стороны подают блюда гостю?",
+          "options": [
+            {
+              "text": "Слева",
+              "isCorrect": false
+            },
+            {
+              "text": "Справа",
+              "isCorrect": true
+            },
+            {
+              "text": "С любой стороны",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Что нужно сделать с меню, если оно лежит на тарелке?",
+          "options": [
+            {
+              "text": "Убрать",
+              "isCorrect": false
+            },
+            {
+              "text": "Оставить",
+              "isCorrect": false
+            },
+            {
+              "text": "Подать в руки гостю",
+              "isCorrect": true
+            }
+          ]
+        },
+        {
+          "text": "В какой последовательности подаются холодные закуски?",
+          "options": [
+            {
+              "text": "Овощи → рыба → мясо",
+              "isCorrect": false
+            },
+            {
+              "text": "Мясо → рыба → птица",
+              "isCorrect": false
+            },
+            {
+              "text": "Рыба → овощи → мясо → птица",
+              "isCorrect": true
+            }
+          ]
+        },
+        {
+          "text": "Как официант подаёт блюдо?",
+          "options": [
+            {
+              "text": "Слева рукой",
+              "isCorrect": false
+            },
+            {
+              "text": "Справа рукой",
+              "isCorrect": true
+            },
+            {
+              "text": "Через голову гостя",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Что нужно сделать с бутылкой после наливания алкоголя?",
+          "options": [
+            {
+              "text": "Закрыть сразу",
+              "isCorrect": false
+            },
+            {
+              "text": "Провернуть по часовой стрелке",
+              "isCorrect": true
+            },
+            {
+              "text": "Наклонить вниз горлышком",
+              "isCorrect": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "service-middle",
+      "title": "Банкетное обслуживание: средний",
+      "category": "Банкетное обслуживание",
+      "source": "tests",
+      "difficulty": "middle",
+      "weight": 2,
+      "passScore": 10,
+      "maxScore": 10,
+      "description": "Дополнительный раздел по обслуживанию.",
+      "questions": [
+        {
+          "text": "В каком порядке обслуживают гостей?",
+          "options": [
+            {
+              "text": "Мужчины → женщины → дети",
+              "isCorrect": false
+            },
+            {
+              "text": "Все одновременно",
+              "isCorrect": false
+            },
+            {
+              "text": "Дети → женщины → мужчины",
+              "isCorrect": true
+            }
+          ]
+        },
+        {
+          "text": "Что делать, если гость не знаком с этикетом использования салфетки?",
+          "options": [
+            {
+              "text": "Настоять на правильном использовании",
+              "isCorrect": false
+            },
+            {
+              "text": "Предложить убрать её",
+              "isCorrect": true
+            },
+            {
+              "text": "Игнорировать",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Почему нельзя поднимать бокал со стола при наливании напитка?",
+          "options": [
+            {
+              "text": "Бокал может разбиться",
+              "isCorrect": false
+            },
+            {
+              "text": "Так быстрее",
+              "isCorrect": false
+            },
+            {
+              "text": "Это нарушает этикет",
+              "isCorrect": true
+            }
+          ]
+        },
+        {
+          "text": "Что делать, если гость уже пьёт безалкогольный напиток, но заказал красное вино?",
+          "options": [
+            {
+              "text": "Оставить оба бокала",
+              "isCorrect": false
+            },
+            {
+              "text": "Заменить белый бокал на красный",
+              "isCorrect": true
+            },
+            {
+              "text": "Налить вино в тот же бокал",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Что делать, если в тарелке осталось 1/5 закуски?",
+          "options": [
+            {
+              "text": "Предложить гостям",
+              "isCorrect": false
+            },
+            {
+              "text": "Переложить в тарелку 20 см и вернуть на стол",
+              "isCorrect": true
+            },
+            {
+              "text": "Выбросить",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "За сколько минут до подачи горячих закусок нужно уточнить тайминг у супервайзера?",
+          "options": [
+            {
+              "text": "5 минут",
+              "isCorrect": false
+            },
+            {
+              "text": "10 минут",
+              "isCorrect": true
+            },
+            {
+              "text": "30 минут",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Куда убирают декораторские украшения перед подачей горячих блюд?",
+          "options": [
+            {
+              "text": "В шкаф",
+              "isCorrect": false
+            },
+            {
+              "text": "Под стол",
+              "isCorrect": false
+            },
+            {
+              "text": "На стейшен",
+              "isCorrect": true
+            }
+          ]
+        },
+        {
+          "text": "Как формируется группа выноса на банкете из 8-10 столов?",
+          "options": [
+            {
+              "text": "Каждый официант работает отдельно",
+              "isCorrect": false
+            },
+            {
+              "text": "Формируются 2 группы",
+              "isCorrect": false
+            },
+            {
+              "text": "Формируется 1 группа выноса",
+              "isCorrect": true
+            }
+          ]
+        },
+        {
+          "text": "Какие десерты относятся к категории \"в столе\"?",
+          "options": [
+            {
+              "text": "Торты, пирожные, чизкейки",
+              "isCorrect": false
+            },
+            {
+              "text": "Фрукты, сыры, порционные десерты в стекле",
+              "isCorrect": true
+            },
+            {
+              "text": "Мороженое",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Как ставятся десерты в баночках?",
+          "options": [
+            {
+              "text": "К каждому гостю отдельно",
+              "isCorrect": false
+            },
+            {
+              "text": "В центр стола",
+              "isCorrect": true
+            },
+            {
+              "text": "На край стола",
+              "isCorrect": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "service-hard",
+      "title": "Банкетное обслуживание: сложный",
+      "category": "Банкетное обслуживание",
+      "source": "tests",
+      "difficulty": "hard",
+      "weight": 3,
+      "passScore": 10,
+      "maxScore": 10,
+      "description": "Дополнительный раздел по обслуживанию.",
+      "questions": [
+        {
+          "text": "Если гость отказывается от текстильной салфетки, но позже она ему понадобилась, что должен сделать официант?",
+          "options": [
+            {
+              "text": "Принести другую",
+              "isCorrect": false
+            },
+            {
+              "text": "Подождать пока сам попросит",
+              "isCorrect": false
+            },
+            {
+              "text": "Тактично предложить снова",
+              "isCorrect": true
+            }
+          ]
+        },
+        {
+          "text": "Гость пьёт белое вино, но заказывает красное. Бокал для белого ещё наполовину полон. Какие действия официанта?",
+          "options": [
+            {
+              "text": "Поставить бокал для красного рядом",
+              "isCorrect": false
+            },
+            {
+              "text": "Убрать бокал для белого, заменив на красный",
+              "isCorrect": true
+            },
+            {
+              "text": "Спросить: «Убрать белое вино?»",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Идет подача горячих блюд. Гость намерен уйти с мероприятия раньше времени, но желает попробовать блюдо.\nВаши действия?",
+          "options": [
+            {
+              "text": "Подать без вопросов",
+              "isCorrect": false
+            },
+            {
+              "text": "Предложить упаковать с собой",
+              "isCorrect": true
+            },
+            {
+              "text": "Отказать, сославшись на очередность подачи",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Идет подача порционного десерта. Гость роняет вилку, приборов на замену на стейшене нет.\nВаши действия?",
+          "options": [
+            {
+              "text": "Тактично попросить гостя подождать",
+              "isCorrect": false
+            },
+            {
+              "text": "Подать чайную ложку",
+              "isCorrect": false
+            },
+            {
+              "text": "Оба варианта верны",
+              "isCorrect": true
+            }
+          ]
+        },
+        {
+          "text": "Гость утверждает, что в его салате недостаточно соуса, хотя порция стандартная. Как реагировать?",
+          "options": [
+            {
+              "text": "Сказать: \"Так и должно быть\"",
+              "isCorrect": false
+            },
+            {
+              "text": "Принести соус",
+              "isCorrect": true
+            },
+            {
+              "text": "Пригласить шеф-повара",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Для чего нужен \"ручник\"?",
+          "options": [
+            {
+              "text": "Чтобы протирать грязный стол",
+              "isCorrect": false
+            },
+            {
+              "text": "Исключительно при подачи напитков",
+              "isCorrect": true
+            },
+            {
+              "text": "Вытирать мокрые/грязные руки",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Гость просит заменить бокал для вина на «более красивый», хотя сервировка соответствует стандарту. Ваши действия?",
+          "options": [
+            {
+              "text": "Бокалы подбираются по типу напитка",
+              "isCorrect": false
+            },
+            {
+              "text": "Отказать, сославшись на правила",
+              "isCorrect": false
+            },
+            {
+              "text": "Предложить альтернативу",
+              "isCorrect": true
+            }
+          ]
+        },
+        {
+          "text": "Холодная закуска подана, но гость отвлёкся и не начал есть. Когда её стоит заменить?",
+          "options": [
+            {
+              "text": "Через 5 минут",
+              "isCorrect": false
+            },
+            {
+              "text": "Только когда гость попросит",
+              "isCorrect": false
+            },
+            {
+              "text": "Через 10–15 минут",
+              "isCorrect": true
+            }
+          ]
+        },
+        {
+          "text": "На банкете гость требует алкоголь, которого нет в винном списке мероприятия. Что делать?",
+          "options": [
+            {
+              "text": "Сказать что этого напитка нет",
+              "isCorrect": false
+            },
+            {
+              "text": "Предложить доступные аналоги",
+              "isCorrect": true
+            },
+            {
+              "text": "Спросить у менеджера",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Группа выноса ошиблась и принесла блюдо не на тот стол. Можно ли перенести его на нужный?",
+          "options": [
+            {
+              "text": "Да",
+              "isCorrect": false
+            },
+            {
+              "text": "Нет",
+              "isCorrect": true
+            },
+            {
+              "text": "Если гость не против",
+              "isCorrect": false
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "slug": "photo-line",
+      "taskNum": 1,
+      "title": "Фото линии",
+      "description": "Загрузи фото линии или рабочей зоны и добавь короткий комментарий.",
+      "requiresMenu": false
+    },
+    {
+      "slug": "dish-photo",
+      "taskNum": 2,
+      "title": "Фото блюда из меню",
+      "description": "Выбери тип мероприятия и класс блюда. Система покажет позиции из NocoDB, у которых нет фото. Загрузи фото выбранного блюда.",
+      "requiresMenu": true
+    },
+    {
+      "slug": "create-test",
+      "taskNum": 3,
+      "title": "Создать тест",
+      "description": "Предложи вопрос для Академии, варианты ответов и отметь правильный.",
+      "requiresMenu": false
+    },
+    {
+      "slug": "fact-of-day",
+      "taskNum": 4,
+      "title": "Факт дня",
+      "description": "Поделись полезным фактом для команды LOFT HALL.",
+      "requiresMenu": false
+    },
+    {
+      "slug": "bot-bug",
+      "taskNum": 5,
+      "title": "Ошибка в боте",
+      "description": "Опиши ошибку в Академии или боте. Можно приложить скриншот.",
+      "requiresMenu": false
+    }
+  ],
+  "stats": {
+    "quizzes": 17,
+    "questions": 190
+  }
+}

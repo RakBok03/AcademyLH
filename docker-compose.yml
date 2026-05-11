@@ -1,0 +1,40 @@
+services:
+  app:
+    build: .
+    container_name: academylh-app
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:3001:3000"
+    networks:
+      - default
+      - npm_network
+    volumes:
+      - ./uploads:/app/uploads
+
+  db:
+    image: postgres:16-alpine
+    container_name: academylh-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: academylh
+      POSTGRES_USER: academylh
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - academylh_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U academylh -d academylh"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  academylh_postgres:
+
+networks:
+  npm_network:
+    external: true
