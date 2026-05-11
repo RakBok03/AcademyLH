@@ -22,14 +22,29 @@ export async function callPuzzleBot(method, params = {}) {
   }
 }
 
-export async function sendReviewMessage(text) {
+export async function sendReviewMessage({ text, photoUrl, rewardUrl }) {
   const chatId = process.env.PUZZLEBOT_REVIEW_CHAT_ID;
   if (!chatId) return { skipped: true, reason: 'PUZZLEBOT_REVIEW_CHAT_ID is not configured' };
+  const replyMarkup = rewardUrl ? JSON.stringify({
+    inline_keyboard: [[{ text: 'Вознаградить', url: rewardUrl }]]
+  }) : undefined;
+
+  if (photoUrl) {
+    return callPuzzleBot('tg.sendPhoto', {
+      chat_id: chatId,
+      photo: photoUrl,
+      caption: text,
+      parse_mode: 'HTML',
+      reply_markup: replyMarkup
+    });
+  }
+
   return callPuzzleBot('tg.sendMessage', {
     chat_id: chatId,
     text,
     parse_mode: 'HTML',
-    disable_web_page_preview: 'false'
+    disable_web_page_preview: 'false',
+    reply_markup: replyMarkup
   });
 }
 

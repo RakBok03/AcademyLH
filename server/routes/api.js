@@ -5,8 +5,9 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import { query, withTransaction } from '../db/pool.js';
 import { extractTelegramUser, verifyTelegramInitData } from '../services/telegramAuth.js';
+import { fetchTelegramProfilePhoto, hasTelegramProfilePhoto } from '../services/telegramBot.js';
 import { recalculateUserScore } from '../services/scoring.js';
-import { fetchMissingPhotoDishes } from '../services/nocodb.js';
+import { fetchMenuFilters, fetchMissingPhotoDishes } from '../services/nocodb.js';
 import { notifyReward, sendReviewMessage } from '../services/puzzlebot.js';
 
 export const api = express.Router();
@@ -33,6 +34,10 @@ function signUser(user) {
 }
 
 async function upsertTelegramUser(telegramUser) {
+  let photoUrl = telegramUser.photo_url || null;
+  if (!photoUrl && await hasTelegramProfilePhoto(telegramUser.id)) {
+    photoUrl = `/api/telegram/avatar/${telegramUser.id}`;
+  }
   const adminIds = new Set(
     String(process.env.ADMIN_TELEGRAM_IDS || '')
       .split(',')
@@ -56,12 +61,24 @@ async function upsertTelegramUser(telegramUser) {
       telegramUser.username || null,
       telegramUser.first_name || null,
       telegramUser.last_name || null,
-      telegramUser.photo_url || null,
+      photoUrl,
       role
     ]
   );
   return result.rows[0];
 }
+
+api.get('/telegram/avatar/:telegramId', async (req, res, next) => {
+  try {
+    const photo = await fetchTelegramProfilePhoto(req.params.telegramId);
+    if (!photo) return res.status(404).end();
+    res.setHeader('Content-Type', photo.contentType);
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.send(photo.buffer);
+  } catch (error) {
+    next(error);
+  }
+});
 
 async function requireAuth(req, res, next) {
   try {
@@ -96,6 +113,33 @@ function publicUser(user) {
     titleText: user.title_text,
     academyLevel: user.academy_level
   };
+}
+
+function normalizeHashtag(value) {
+  return String(value || '')
+    .trim()
+    .replace(/\s+/g, '_')
+    .replace(/[^\p{L}\p{N}_]/gu, '');
+}
+
+function formatReviewMessage({ task, user, comment, payload }) {
+  const tags = [`#${task.task_num}задание`];
+  if (payload.typeEvent) tags.push(`#${normalizeHashtag(payload.typeEvent)}`);
+  if (payload.classDish) tags.push(`#${normalizeHashtag(payload.classDish)}`);
+
+  return [
+    '<b>Новый ответ на задание</b>',
+    tags.join(' '),
+    '',
+    `Пользователь: ${[user.first_name, user.last_name].filter(Boolean).join(' ')} ${user.username ? `@${user.username}` : ''}`.trim(),
+    `id: ${user.telegram_id || user.id}`,
+    payload.typeEvent ? `Тип мероприятия: ${payload.typeEvent}` : null,
+    payload.classDish ? `Тип блюда: ${payload.classDish}` : null,
+    payload.dishName ? `Блюдо: ${payload.dishName}` : null,
+    '',
+    '<b>Комментарий:</b>',
+    comment || '-'
+  ].filter((line) => line !== null).join('\n');
 }
 
 api.post('/auth/telegram', async (req, res, next) => {
@@ -135,7 +179,8 @@ api.get('/me', requireAuth, async (req, res) => {
     [req.user.id]
   );
   const progress = await query(
-    `SELECT cs.slug, cs.title, COALESCE(up.status, 'available') AS status, COALESCE(up.score, 0) AS score
+    `SELECT c.slug AS course_slug, c.title AS course_title, c.difficulty AS course_difficulty,
+            cs.slug, cs.title, COALESCE(up.status, 'available') AS status, COALESCE(up.score, 0) AS score
      FROM course_sections cs
      JOIN courses c ON c.id = cs.course_id
      LEFT JOIN user_progress up ON up.section_id = cs.id AND up.user_id = $1
@@ -306,6 +351,15 @@ api.get('/tasks/:slug/menu-options', requireAuth, async (req, res, next) => {
   }
 });
 
+api.get('/tasks/:slug/menu-filters', requireAuth, async (_req, res, next) => {
+  try {
+    const filters = await fetchMenuFilters();
+    res.json(filters);
+  } catch (error) {
+    next(error);
+  }
+});
+
 api.post('/tasks/:slug/submissions', requireAuth, upload.array('files', 6), async (req, res, next) => {
   try {
     const taskResult = await query('SELECT * FROM tasks WHERE slug = $1 AND active = true', [req.params.slug]);
@@ -317,6 +371,7 @@ api.post('/tasks/:slug/submissions', requireAuth, upload.array('files', 6), asyn
       dishName: req.body.dishName || null
     };
 
+    const uploadedFiles = [];
     const submission = await withTransaction(async (client) => {
       const submissionResult = await client.query(
         `INSERT INTO task_submissions (task_id, user_id, comment, payload)
@@ -332,20 +387,19 @@ api.post('/tasks/:slug/submissions', requireAuth, upload.array('files', 6), asyn
            VALUES ($1, $2, $3, $4, $5, $6, $7)`,
           [submissionRow.id, file.originalname, file.filename, file.path, file.mimetype, file.size, publicUrl]
         );
+        uploadedFiles.push({ publicUrl, mimeType: file.mimetype });
       }
       return submissionRow;
     });
 
     const appUrl = process.env.APP_URL || 'https://lofthallacademy.ru';
-    const reviewText = [
-      '<b>Новое задание на проверку</b>',
-      `Задание: ${task.task_num}. ${task.title}`,
-      `Пользователь: ${req.user.first_name || ''} ${req.user.last_name || ''} ${req.user.username ? `@${req.user.username}` : ''}`.trim(),
-      `Комментарий: ${req.body.comment || '-'}`,
-      payload.dishName ? `Блюдо: ${payload.dishName}` : null,
-      `Открыть в админке: ${appUrl}/admin`
-    ].filter(Boolean).join('\n');
-    sendReviewMessage(reviewText).catch((error) => console.error('PuzzleBot review notification failed', error));
+    const reviewText = formatReviewMessage({ task, user: req.user, comment: req.body.comment, payload });
+    const firstPhoto = uploadedFiles.find((file) => file.mimeType?.startsWith('image/'));
+    sendReviewMessage({
+      text: reviewText,
+      photoUrl: firstPhoto ? `${appUrl}${firstPhoto.publicUrl}` : null,
+      rewardUrl: `${appUrl}/?page=admin&submissionId=${submission.id}`
+    }).catch((error) => console.error('PuzzleBot review notification failed', error));
 
     res.status(201).json({ submission });
   } catch (error) {

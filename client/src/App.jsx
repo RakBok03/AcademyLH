@@ -13,19 +13,23 @@ import {
   Settings,
   Sparkles,
   Trophy,
-  User,
-  Users
+  User
 } from 'lucide-react';
 import { apiFetch, authenticate } from './lib/api.js';
 
-const navItems = [
-  ['home', 'Главная', Home],
-  ['profile', 'Профиль', User],
-  ['courses', 'Курсы', BookOpen],
-  ['tests', 'Тесты', ClipboardList],
-  ['leaderboard', 'Лидеры', Trophy],
-  ['tasks', 'Задания', Send]
-];
+const statusLabels = {
+  available: 'Доступно',
+  locked: 'Закрыто',
+  pending: 'На проверке',
+  approved: 'Принято',
+  rejected: 'Нужно доработать'
+};
+
+const allowedPages = new Set(['home', 'profile', 'courses', 'tests', 'leaderboard', 'tasks', 'admin']);
+
+function statusLabel(status) {
+  return statusLabels[status] || status;
+}
 
 function cx(...values) {
   return values.filter(Boolean).join(' ');
@@ -57,6 +61,15 @@ function PageHeader({ eyebrow, title, children }) {
   );
 }
 
+function BackHomeButton({ setPage }) {
+  return (
+    <button type="button" className="ghost compact-button" onClick={() => setPage('home')}>
+      <Home size={17} />
+      Главная
+    </button>
+  );
+}
+
 function Stat({ label, value, icon: Icon }) {
   return (
     <div className="stat">
@@ -71,7 +84,9 @@ function HomePage({ data, setPage }) {
   return (
     <main className="page">
       <PageHeader eyebrow="LOFT HALL" title="Академия">
-        <Avatar user={data.user} />
+        <button type="button" className="avatar-button" onClick={() => setPage('profile')} aria-label="Открыть профиль">
+          <Avatar user={data.user} />
+        </button>
       </PageHeader>
       <section className="hero-panel">
         <div className="surreal-mark" aria-hidden="true">
@@ -90,10 +105,12 @@ function HomePage({ data, setPage }) {
         </div>
       </section>
       <section className="quick-grid">
+        <button onClick={() => setPage('profile')}><User size={20} />Профиль</button>
         <button onClick={() => setPage('courses')}><BookOpen size={20} />Курсы</button>
         <button onClick={() => setPage('tests')}><ClipboardList size={20} />Тесты</button>
         <button onClick={() => setPage('leaderboard')}><Trophy size={20} />Рейтинг</button>
         <button onClick={() => setPage('tasks')}><Send size={20} />Задания</button>
+        {data.user.role === 'admin' && <button onClick={() => setPage('admin')}><Settings size={20} />Админка</button>}
       </section>
       <section className="list-section">
         <h2>Топ-5</h2>
@@ -115,12 +132,29 @@ function HomePage({ data, setPage }) {
   );
 }
 
-function ProfilePage({ me }) {
+function ProfilePage({ me, setPage }) {
   const completed = me.progress.filter((item) => item.status === 'completed').length;
+  const groupedProgress = useMemo(() => {
+    return me.progress.reduce((acc, item) => {
+      const slug = item.course_slug || 'stazher-trail';
+      acc[slug] ||= {
+        slug,
+        title: item.course_title || 'Стажерская тропа',
+        difficulty: item.course_difficulty || 'начальный',
+        items: []
+      };
+      acc[slug].items.push(item);
+      return acc;
+    }, {});
+  }, [me.progress]);
+
   return (
     <main className="page">
       <PageHeader eyebrow="Профиль" title={formatName(me.user)}>
-        <Avatar user={me.user} size="lg" />
+        <div className="header-actions">
+          <BackHomeButton setPage={setPage} />
+          <Avatar user={me.user} size="lg" />
+        </div>
       </PageHeader>
       <section className="stats-grid">
         <Stat label="Титул" value={me.user.titleText} icon={Award} />
@@ -129,14 +163,28 @@ function ProfilePage({ me }) {
       </section>
       <section className="list-section">
         <h2>Прогресс курса</h2>
-        <div className="progress-lines">
-          {me.progress.map((item) => (
-            <div key={item.slug}>
-              <span>{item.title}</span>
-              <b>{item.status === 'completed' ? 'пройдено' : 'доступно'}</b>
-            </div>
-          ))}
-        </div>
+        {Object.values(groupedProgress).map((course) => {
+          const courseCompleted = course.items.filter((item) => item.status === 'completed').length;
+          return (
+            <details className="course-progress" key={course.slug} open>
+              <summary>
+                <div>
+                  <strong>{course.title}</strong>
+                  <span>{course.difficulty}</span>
+                </div>
+                <b>{courseCompleted}/{course.items.length}</b>
+              </summary>
+              <div className="progress-lines">
+                {course.items.map((item) => (
+                  <div key={item.slug}>
+                    <span>{item.title}</span>
+                    <b>{statusLabel(item.status)}</b>
+                  </div>
+                ))}
+              </div>
+            </details>
+          );
+        })}
       </section>
       <section className="list-section">
         <h2>История тестов</h2>
@@ -158,10 +206,12 @@ function ProfilePage({ me }) {
   );
 }
 
-function CoursesPage({ courses, selectedCourse, openCourse }) {
+function CoursesPage({ courses, selectedCourse, openCourse, setPage }) {
   return (
     <main className="page">
-      <PageHeader eyebrow="Курсы" title="Обучение" />
+      <PageHeader eyebrow="Курсы" title="Обучение">
+        <BackHomeButton setPage={setPage} />
+      </PageHeader>
       <section className="course-list">
         {courses.map((course) => (
           <button className="course-card" key={course.slug} onClick={() => openCourse(course.slug)}>
@@ -194,7 +244,7 @@ function CoursesPage({ courses, selectedCourse, openCourse }) {
   );
 }
 
-function TestsPage({ quizzes, openQuiz }) {
+function TestsPage({ quizzes, openQuiz, setPage }) {
   const grouped = useMemo(() => {
     return quizzes.reduce((acc, quiz) => {
       acc[quiz.category] ||= [];
@@ -205,7 +255,9 @@ function TestsPage({ quizzes, openQuiz }) {
 
   return (
     <main className="page">
-      <PageHeader eyebrow="Проверка знаний" title="Тесты" />
+      <PageHeader eyebrow="Проверка знаний" title="Тесты">
+        <BackHomeButton setPage={setPage} />
+      </PageHeader>
       {Object.entries(grouped).map(([category, items]) => (
         <section className="list-section" key={category}>
           <h2>{category}</h2>
@@ -274,10 +326,12 @@ function QuizPage({ quizState, submitQuiz, close }) {
   );
 }
 
-function LeaderboardPage({ leaderboard }) {
+function LeaderboardPage({ leaderboard, setPage }) {
   return (
     <main className="page">
-      <PageHeader eyebrow="Рейтинг" title="Лидеры" />
+      <PageHeader eyebrow="Рейтинг" title="Лидеры">
+        <BackHomeButton setPage={setPage} />
+      </PageHeader>
       <section className="hero-panel compact">
         <Trophy size={30} />
         <div>
@@ -305,15 +359,36 @@ function LeaderboardPage({ leaderboard }) {
   );
 }
 
-function TasksPage({ tasks, submitTask, loadMenu }) {
+function TasksPage({ tasks, submitTask, loadMenu, loadMenuFilters, setPage }) {
   const [active, setActive] = useState(null);
   const [form, setForm] = useState({});
   const [menu, setMenu] = useState([]);
+  const [filters, setFilters] = useState({ eventTypes: [], dishClasses: [] });
+  const [menuState, setMenuState] = useState({ loading: false, message: '' });
   const activeTask = tasks.find((task) => task.slug === active);
 
+  useEffect(() => {
+    if (!activeTask?.requires_menu) return;
+    (async () => {
+      try {
+        const payload = await loadMenuFilters();
+        setFilters(payload);
+      } catch {
+        setMenuState({ loading: false, message: 'Не удалось загрузить справочник меню.' });
+      }
+    })();
+  }, [activeTask?.slug]);
+
   async function findDishes() {
-    const dishes = await loadMenu(form.typeEvent, form.classDish);
-    setMenu(dishes);
+    setMenuState({ loading: true, message: '' });
+    try {
+      const dishes = await loadMenu(form.typeEvent, form.classDish);
+      setMenu(dishes);
+      setMenuState({ loading: false, message: dishes.length ? '' : 'Подходящих блюд не найдено.' });
+    } catch {
+      setMenu([]);
+      setMenuState({ loading: false, message: 'Не удалось получить блюда из меню.' });
+    }
   }
 
   async function onSubmit(event) {
@@ -327,7 +402,9 @@ function TasksPage({ tasks, submitTask, loadMenu }) {
 
   return (
     <main className="page">
-      <PageHeader eyebrow="Практика" title="Доска заданий" />
+      <PageHeader eyebrow="Практика" title="Доска заданий">
+        <BackHomeButton setPage={setPage} />
+      </PageHeader>
       {!activeTask && (
         <section className="task-grid">
           {tasks.map((task) => (
@@ -335,7 +412,7 @@ function TasksPage({ tasks, submitTask, loadMenu }) {
               <span>Задание {task.task_num}</span>
               <h2>{task.title}</h2>
               <p>{task.description}</p>
-              {task.last_status && <b>{task.last_status}</b>}
+              {task.last_status && <b>{statusLabel(task.last_status)}</b>}
             </button>
           ))}
         </section>
@@ -344,15 +421,44 @@ function TasksPage({ tasks, submitTask, loadMenu }) {
         <form className="submission-form" onSubmit={onSubmit}>
           <button type="button" className="ghost" onClick={() => setActive(null)}>Назад</button>
           <h2>{activeTask.title}</h2>
-          <p>{activeTask.description}</p>
+          <p className="task-description">{activeTask.description}</p>
           {activeTask.requires_menu && (
             <div className="field-grid">
-              <label>Тип мероприятия<input name="typeEvent" value={form.typeEvent || ''} onChange={(e) => setForm({ ...form, typeEvent: e.target.value })} placeholder="Банкет" /></label>
-              <label>Класс блюда<input name="classDish" value={form.classDish || ''} onChange={(e) => setForm({ ...form, classDish: e.target.value })} placeholder="Канапе" /></label>
-              <button type="button" className="secondary" onClick={findDishes}>Найти блюда</button>
+              <label>Тип мероприятия
+                <select
+                  name="typeEvent"
+                  value={form.typeEvent || ''}
+                  required
+                  onChange={(e) => {
+                    setForm({ ...form, typeEvent: e.target.value, dishName: '' });
+                    setMenu([]);
+                  }}
+                >
+                  <option value="">Выбери тип мероприятия</option>
+                  {filters.eventTypes.map((type) => <option key={type} value={type}>{type}</option>)}
+                </select>
+              </label>
+              <label>Тип блюда
+                <select
+                  name="classDish"
+                  value={form.classDish || ''}
+                  required
+                  onChange={(e) => {
+                    setForm({ ...form, classDish: e.target.value, dishName: '' });
+                    setMenu([]);
+                  }}
+                >
+                  <option value="">Выбери тип блюда</option>
+                  {filters.dishClasses.map((dishClass) => <option key={dishClass} value={dishClass}>{dishClass}</option>)}
+                </select>
+              </label>
+              <button type="button" className="secondary" disabled={!form.typeEvent || !form.classDish || menuState.loading} onClick={findDishes}>
+                {menuState.loading ? 'Ищу...' : 'Показать блюда'}
+              </button>
+              {menuState.message && <p className="field-note">{menuState.message}</p>}
               {menu.length > 0 && (
                 <label className="full">Блюдо
-                  <select name="dishName" onChange={(e) => setForm({ ...form, dishName: e.target.value })}>
+                  <select name="dishName" required value={form.dishName || ''} onChange={(e) => setForm({ ...form, dishName: e.target.value })}>
                     <option value="">Выбери позицию</option>
                     {menu.map((dish) => (
                       <option key={dish.id || dish.Id || dish.name} value={dish.name || dish.Name || dish.title}>{dish.name || dish.Name || dish.title || `Позиция ${dish.id}`}</option>
@@ -371,24 +477,38 @@ function TasksPage({ tasks, submitTask, loadMenu }) {
   );
 }
 
-function AdminPage({ admin, reviewSubmission, reload }) {
+function AdminPage({ admin, reviewSubmission, reload, setPage, selectedSubmissionId }) {
   const [reward, setReward] = useState({});
+  const selectedId = Number(selectedSubmissionId || 0);
   return (
     <main className="page">
-      <PageHeader eyebrow="Админка" title="Проверка и пользователи" />
+      <PageHeader eyebrow="Админка" title="Проверка и пользователи">
+        <BackHomeButton setPage={setPage} />
+      </PageHeader>
       <section className="list-section">
         <h2>Заявки</h2>
         <div className="list">
           {admin.submissions.map((submission) => (
-            <div className="admin-item" key={submission.id}>
+            <div className={cx('admin-item', selectedId === submission.id && 'selected-admin-item')} key={submission.id}>
               <div>
                 <strong>{submission.task_num}. {submission.task_title}</strong>
                 <span>{submission.first_name} {submission.last_name} {submission.username ? `@${submission.username}` : ''}</span>
+                {submission.payload?.typeEvent && <small>Тип мероприятия: {submission.payload.typeEvent}</small>}
+                {submission.payload?.classDish && <small>Тип блюда: {submission.payload.classDish}</small>}
+                {submission.payload?.dishName && <small>Блюдо: {submission.payload.dishName}</small>}
                 <p>{submission.comment || 'Без комментария'}</p>
-                <small>{submission.status}</small>
+                <small>{statusLabel(submission.status)}</small>
+                {submission.uploads?.length > 0 && (
+                  <div className="upload-links">
+                    {submission.uploads.map((upload) => (
+                      <a key={upload.id} href={upload.url} target="_blank" rel="noreferrer">{upload.name}</a>
+                    ))}
+                  </div>
+                )}
               </div>
               <input type="number" min="0" placeholder="Баллы" value={reward[submission.id] || ''} onChange={(e) => setReward({ ...reward, [submission.id]: e.target.value })} />
-              <button onClick={async () => { await reviewSubmission(submission.id, reward[submission.id] || 0); reload(); }}>Начислить</button>
+              <button onClick={async () => { await reviewSubmission(submission.id, 'approved', reward[submission.id] || 0); reload(); }}>Вознаградить</button>
+              <button className="secondary" onClick={async () => { await reviewSubmission(submission.id, 'rejected', 0); reload(); }}>Отклонить</button>
             </div>
           ))}
         </div>
@@ -413,7 +533,10 @@ function AdminPage({ admin, reviewSubmission, reload }) {
 }
 
 export function App() {
-  const [page, setPage] = useState('home');
+  const query = new URLSearchParams(window.location.search);
+  const requestedPage = query.get('page');
+  const selectedSubmissionId = query.get('submissionId');
+  const [page, setPage] = useState(allowedPages.has(requestedPage) ? requestedPage : 'home');
   const [boot, setBoot] = useState({ loading: true, error: null });
   const [home, setHome] = useState(null);
   const [me, setMe] = useState(null);
@@ -486,6 +609,10 @@ export function App() {
     return result.dishes;
   }
 
+  async function loadMenuFilters() {
+    return apiFetch('/tasks/dish-photo/menu-filters');
+  }
+
   async function submitTask(slug, formData) {
     await apiFetch(`/tasks/${slug}/submissions`, {
       method: 'POST',
@@ -495,10 +622,10 @@ export function App() {
     await loadAll();
   }
 
-  async function reviewSubmission(id, rewardPoints) {
+  async function reviewSubmission(id, status, rewardPoints) {
     await apiFetch(`/admin/submissions/${id}/review`, {
       method: 'POST',
-      body: JSON.stringify({ status: 'approved', rewardPoints: Number(rewardPoints || 0), adminComment: 'Проверено через AcademyLH' })
+      body: JSON.stringify({ status, rewardPoints: Number(rewardPoints || 0), adminComment: 'Проверено через AcademyLH' })
     });
   }
 
@@ -509,26 +636,22 @@ export function App() {
   return (
     <div className="app-shell">
       {page === 'home' && <HomePage data={home} setPage={setPage} />}
-      {page === 'profile' && <ProfilePage me={me} />}
-      {page === 'courses' && <CoursesPage courses={courses} selectedCourse={selectedCourse} openCourse={openCourse} />}
-      {page === 'tests' && <TestsPage quizzes={quizzes} openQuiz={openQuiz} />}
-      {page === 'leaderboard' && <LeaderboardPage leaderboard={leaderboard} />}
-      {page === 'tasks' && <TasksPage tasks={tasks} submitTask={submitTask} loadMenu={loadMenu} />}
-      {page === 'admin' && admin && <AdminPage admin={admin} reviewSubmission={reviewSubmission} reload={loadAdmin} />}
-      <nav className="bottom-nav">
-        {navItems.map(([key, label, Icon]) => (
-          <button key={key} className={page === key ? 'active' : ''} onClick={() => setPage(key)}>
-            <Icon size={18} />
-            <span>{label}</span>
-          </button>
-        ))}
-        {home.user.role === 'admin' && (
-          <button className={page === 'admin' ? 'active' : ''} onClick={() => setPage('admin')}>
-            <Settings size={18} />
-            <span>Админ</span>
-          </button>
-        )}
-      </nav>
+      {page === 'profile' && <ProfilePage me={me} setPage={setPage} />}
+      {page === 'courses' && <CoursesPage courses={courses} selectedCourse={selectedCourse} openCourse={openCourse} setPage={setPage} />}
+      {page === 'tests' && <TestsPage quizzes={quizzes} openQuiz={openQuiz} setPage={setPage} />}
+      {page === 'leaderboard' && <LeaderboardPage leaderboard={leaderboard} setPage={setPage} />}
+      {page === 'tasks' && <TasksPage tasks={tasks} submitTask={submitTask} loadMenu={loadMenu} loadMenuFilters={loadMenuFilters} setPage={setPage} />}
+      {page === 'admin' && home.user.role === 'admin' && admin && <AdminPage admin={admin} reviewSubmission={reviewSubmission} reload={loadAdmin} setPage={setPage} selectedSubmissionId={selectedSubmissionId} />}
+      {page === 'admin' && home.user.role !== 'admin' && (
+        <main className="page">
+          <PageHeader eyebrow="Доступ" title="Админка закрыта">
+            <BackHomeButton setPage={setPage} />
+          </PageHeader>
+          <section className="list-section">
+            <p className="muted">Этот раздел доступен только администраторам.</p>
+          </section>
+        </main>
+      )}
     </div>
   );
 }

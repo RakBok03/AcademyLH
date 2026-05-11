@@ -27,6 +27,13 @@ export async function authenticate() {
   const tg = window.Telegram?.WebApp;
   tg?.ready?.();
   tg?.expand?.();
+  const existingToken = getToken();
+  if (!tg?.initData && existingToken) {
+    return { token: existingToken, existing: true };
+  }
+  if (!tg?.initData) {
+    throw new Error('Откройте Академию через кнопку в Telegram. Прямой вход по ссылке закрыт.');
+  }
   const unsafeUser = tg?.initDataUnsafe?.user || null;
   const payload = {
     initData: tg?.initData || '',

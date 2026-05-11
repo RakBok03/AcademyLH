@@ -60,7 +60,7 @@ button:disabled {
 
 .app-shell {
   min-height: 100vh;
-  padding-bottom: 96px;
+  padding-bottom: 32px;
 }
 
 .page {
@@ -288,6 +288,8 @@ button:disabled {
 .admin-item > div {
   flex: 1;
   min-width: 0;
+  display: grid;
+  gap: 5px;
 }
 
 .admin-item input {
@@ -302,6 +304,12 @@ button:disabled {
   padding: 0 14px;
   border-radius: 8px;
   font-weight: 800;
+}
+
+.compact-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
 }
 
 .admin-item button,
@@ -380,6 +388,18 @@ button:disabled {
   object-fit: cover;
 }
 
+.avatar-button {
+  padding: 0;
+  border-radius: 8px;
+  background: transparent;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .course-list {
   grid-template-columns: 1fr;
 }
@@ -396,6 +416,14 @@ button:disabled {
   margin: 0;
   color: var(--muted);
   line-height: 1.45;
+}
+
+.task-card p {
+  overflow: hidden;
+  display: -webkit-box;
+  white-space: pre-line;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
 }
 
 .test-grid {
@@ -436,6 +464,38 @@ button:disabled {
   grid-template-columns: 1fr auto;
   border: 1px solid var(--line);
   background: var(--paper-solid);
+}
+
+.course-progress {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper-solid);
+}
+
+.course-progress summary {
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  cursor: pointer;
+}
+
+.course-progress summary > div {
+  display: grid;
+  gap: 3px;
+}
+
+.course-progress summary span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.course-progress .progress-lines {
+  padding: 0 12px 12px;
 }
 
 .question {
@@ -480,7 +540,7 @@ button:disabled {
 
 .sticky-action {
   position: sticky;
-  bottom: 82px;
+  bottom: 0;
   padding: 12px 0;
   background: linear-gradient(180deg, transparent, #f5f2ea 38%);
 }
@@ -519,6 +579,13 @@ button:disabled {
   margin: 0;
 }
 
+.task-description {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+  white-space: pre-line;
+}
+
 label {
   display: grid;
   gap: 7px;
@@ -554,47 +621,27 @@ textarea {
   grid-column: 1 / -1;
 }
 
-.bottom-nav {
-  position: fixed;
-  left: 50%;
-  bottom: max(12px, env(safe-area-inset-bottom));
-  z-index: 10;
-  width: min(740px, calc(100% - 20px));
-  transform: translateX(-50%);
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 6px;
-  padding: 8px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: rgba(255, 250, 240, 0.92);
-  backdrop-filter: blur(16px);
-  box-shadow: var(--shadow);
-}
-
-.bottom-nav button {
-  min-width: 0;
-  min-height: 54px;
-  display: grid;
-  place-items: center;
-  gap: 4px;
-  border-radius: 8px;
-  background: transparent;
+.field-note {
+  grid-column: 1 / -1;
+  margin: 0;
   color: var(--muted);
 }
 
-.bottom-nav button.active {
-  background: var(--ink);
-  color: #fffaf0;
+.upload-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-.bottom-nav span {
-  max-width: 100%;
-  overflow: hidden;
-  font-size: 11px;
+.upload-links a {
+  color: var(--teal);
+  font-size: 13px;
   font-weight: 800;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+}
+
+.selected-admin-item {
+  border-color: var(--coral);
+  box-shadow: 0 0 0 2px rgba(217, 93, 57, 0.18);
 }
 
 .icon-button {
@@ -648,10 +695,6 @@ textarea {
   .test-grid,
   .task-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .bottom-nav {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .field-grid {
