@@ -104,7 +104,7 @@ api.post('/auth/telegram', async (req, res, next) => {
     const hasBotToken = Boolean(process.env.TELEGRAM_BOT_TOKEN);
     const allowUnverified = process.env.ALLOW_UNVERIFIED_TELEGRAM === '1' || !hasBotToken;
 
-    if (hasBotToken && !verifyTelegramInitData(initData, process.env.TELEGRAM_BOT_TOKEN)) {
+    if (hasBotToken && !allowUnverified && !verifyTelegramInitData(initData, process.env.TELEGRAM_BOT_TOKEN)) {
       return res.status(401).json({ error: 'Telegram initData verification failed' });
     }
 
