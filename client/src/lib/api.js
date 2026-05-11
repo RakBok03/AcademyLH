@@ -8,6 +8,10 @@ export function setToken(token) {
   localStorage.setItem(TOKEN_KEY, token);
 }
 
+export function clearToken() {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
 export async function apiFetch(path, options = {}) {
   const headers = new Headers(options.headers || {});
   const token = getToken();
@@ -18,6 +22,7 @@ export async function apiFetch(path, options = {}) {
   const response = await fetch(`/api${path}`, { ...options, headers });
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
+    if (response.status === 401) clearToken();
     throw new Error(payload.error || `Request failed: ${response.status}`);
   }
   return response.json();

@@ -87,8 +87,12 @@ async function requireAuth(req, res, next) {
     if (!token) return res.status(401).json({ error: 'Auth token required' });
     const payload = jwt.verify(token, process.env.SESSION_SECRET || 'dev-secret');
     const result = await query('SELECT * FROM users WHERE id = $1', [payload.userId]);
-    if (!result.rows[0]) return res.status(401).json({ error: 'User not found' });
-    req.user = result.rows[0];
+    const user = result.rows[0];
+    if (!user) return res.status(401).json({ error: 'User not found' });
+    if (process.env.ALLOW_UNVERIFIED_TELEGRAM !== '1' && String(user.telegram_id) === '100001') {
+      return res.status(401).json({ error: 'Тестовая demo-сессия больше не действует. Откройте Академию через Telegram.' });
+    }
+    req.user = user;
     next();
   } catch {
     res.status(401).json({ error: 'Invalid auth token' });
