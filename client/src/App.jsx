@@ -127,6 +127,7 @@ function MediaGrid({ media, className }) {
               onClick={() => setOpenedImage({ url, label })}
               key={`${url}-${index}`}
               aria-label={`Открыть фото: ${label}`}
+              style={{ '--media-fill': `url(${encodeURI(url)})` }}
             >
               <img src={encodeURI(url)} alt={label} loading="lazy" />
               <span className="media-zoom-hint"><Maximize2 size={16} /></span>
@@ -140,6 +141,96 @@ function MediaGrid({ media, className }) {
       </div>
       <ImageLightbox image={openedImage} onClose={() => setOpenedImage(null)} />
     </>
+  );
+}
+
+function mediaCaptionTitle(file) {
+  return String(file?.captionTitle || file?.caption || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .find(Boolean) || '';
+}
+
+function normalizeMediaCaption(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[«»"'’]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function splitLessonMedia(media = []) {
+  const mainMedia = [];
+  const groups = new Map();
+
+  media.forEach((file) => {
+    const title = mediaCaptionTitle(file);
+    if (!title) {
+      mainMedia.push(file);
+      return;
+    }
+    const key = normalizeMediaCaption(title);
+    if (!groups.has(key)) groups.set(key, { title, media: [] });
+    groups.get(key).media.push(file);
+  });
+
+  return { mainMedia, groups };
+}
+
+function LessonContent({ lesson, inlineMedia = false }) {
+  const media = lesson.media || [];
+  if (!inlineMedia) {
+    return (
+      <>
+        <RichText text={lesson.body} />
+        <MediaGrid media={media.slice(0, 80)} />
+      </>
+    );
+  }
+
+  return <RichTextWithInlineMedia text={lesson.body} media={media} />;
+}
+
+function RichTextWithInlineMedia({ text, media }) {
+  const { mainMedia, groups } = splitLessonMedia(media);
+  const usedKeys = new Set();
+  const blocks = [];
+  let buffer = [];
+
+  function flushBuffer(index) {
+    const value = buffer.join('\n').trim();
+    if (value) blocks.push(<RichText text={value} key={`text-${index}`} />);
+    buffer = [];
+  }
+
+  String(text || '').split('\n').forEach((line, index) => {
+    const key = normalizeMediaCaption(line);
+    const group = groups.get(key);
+    if (!group) {
+      buffer.push(line);
+      return;
+    }
+
+    flushBuffer(index);
+    blocks.push(<RichText text={line} className="hall-title" key={`hall-${key}`} />);
+    blocks.push(<MediaGrid media={group.media} className="hall-media-grid" key={`media-${key}`} />);
+    usedKeys.add(key);
+  });
+  flushBuffer('last');
+
+  const remainingGroups = [...groups.entries()].filter(([key]) => !usedKeys.has(key));
+
+  return (
+    <div className="lesson-rich-flow">
+      <MediaGrid media={mainMedia} className="lesson-overview-media" />
+      {blocks}
+      {remainingGroups.map(([key, group]) => (
+        <div className="hall-media-block" key={key}>
+          <h4>{group.title}</h4>
+          <MediaGrid media={group.media} className="hall-media-grid" />
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -187,6 +278,17 @@ function CourseQuizActions({ quizzes, openQuiz, inline = false }) {
   );
 }
 
+function QuizStatusBadge({ quiz }) {
+  if (!quiz) return null;
+  const passed = quiz.passed || Number(quiz.bestScore || 0) >= Number(quiz.passScore || quiz.maxScore || 1);
+  const attempted = Number(quiz.bestScore || 0) > 0;
+  return (
+    <span className={cx('quiz-status-badge', passed ? 'passed' : attempted ? 'attempted' : 'pending')}>
+      {passed ? 'Тест пройден' : attempted ? 'Есть попытка' : 'Тест не пройден'}
+    </span>
+  );
+}
+
 function ImageLightbox({ image, onClose }) {
   const [zoom, setZoom] = useState(1);
   const zoomIn = () => setZoom((value) => Math.min(3, Number((value + 0.25).toFixed(2))));
@@ -214,7 +316,6 @@ function ImageLightbox({ image, onClose }) {
   return (
     <div className="image-viewer" role="dialog" aria-modal="true" aria-label={image.label}>
       <div className="image-viewer-toolbar">
-        <span>{image.label}</span>
         <div className="image-viewer-actions">
           <button type="button" onClick={zoomOut} disabled={zoom <= 1} aria-label="Уменьшить"><Minus size={18} /></button>
           <button type="button" onClick={zoomIn} disabled={zoom >= 3} aria-label="Увеличить"><Plus size={18} /></button>
@@ -222,7 +323,7 @@ function ImageLightbox({ image, onClose }) {
           <button type="button" onClick={onClose} aria-label="Закрыть"><X size={20} /></button>
         </div>
       </div>
-      <div className="image-viewer-stage">
+      <div className="image-viewer-stage" style={{ '--media-fill': `url(${encodeURI(image.url)})` }}>
         <img src={encodeURI(image.url)} alt={image.label} style={{ transform: `scale(${zoom})` }} />
       </div>
     </div>
@@ -463,6 +564,7 @@ function CoursesPage({ courses, selectedCourse, activeSectionSlug, setActiveSect
 
 function CourseSectionPage({ course, section, setActiveSectionSlug, completeSection, openQuiz, setPage }) {
   const { byLessonId, remainingQuizzes } = useMemo(() => splitQuizzesByLesson(section), [section]);
+  const isSpacesSection = section.slug === 'spaces';
 
   return (
     <main className="page">
@@ -478,14 +580,19 @@ function CourseSectionPage({ course, section, setActiveSectionSlug, completeSect
       <section className="list-section">
         <RichText text={section.description} className="muted" />
         <div className="lesson-stack">
-          {section.lessons?.map((lesson) => (
-            <article className="lesson-card" key={lesson.id}>
-              <h3>{lesson.title}</h3>
-              <RichText text={lesson.body} />
-              <MediaGrid media={lesson.media?.slice(0, 12)} />
-              <CourseQuizActions quizzes={byLessonId.get(lesson.id)} openQuiz={openQuiz} inline />
-            </article>
-          ))}
+          {section.lessons?.map((lesson) => {
+            const quizzes = byLessonId.get(lesson.id) || [];
+            if (isSpacesSection && quizzes.length) {
+              return <SpaceLessonCard key={lesson.id} lesson={lesson} quizzes={quizzes} openQuiz={openQuiz} />;
+            }
+            return (
+              <article className="lesson-card" key={lesson.id}>
+                <h3>{lesson.title}</h3>
+                <LessonContent lesson={lesson} />
+                <CourseQuizActions quizzes={quizzes} openQuiz={openQuiz} inline />
+              </article>
+            );
+          })}
         </div>
         <CourseQuizActions quizzes={remainingQuizzes} openQuiz={openQuiz} />
         {!section.quizzes?.length && section.user_status !== 'completed' && (
@@ -495,6 +602,25 @@ function CourseSectionPage({ course, section, setActiveSectionSlug, completeSect
         )}
       </section>
     </main>
+  );
+}
+
+function SpaceLessonCard({ lesson, quizzes, openQuiz }) {
+  const quiz = quizzes[0];
+  return (
+    <details className="lesson-card lesson-accordion">
+      <summary>
+        <div>
+          <h3>{lesson.title}</h3>
+          <span>{quiz?.title?.replace(': контрольный тест', '') || 'Пространство'}</span>
+        </div>
+        <QuizStatusBadge quiz={quiz} />
+      </summary>
+      <div className="lesson-accordion-body">
+        <LessonContent lesson={lesson} inlineMedia />
+        <CourseQuizActions quizzes={quizzes} openQuiz={openQuiz} inline />
+      </div>
+    </details>
   );
 }
 

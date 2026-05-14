@@ -507,6 +507,92 @@ button:disabled {
   white-space: pre-line;
 }
 
+.lesson-accordion {
+  padding: 0;
+}
+
+.lesson-accordion summary {
+  min-height: 74px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.lesson-accordion summary::-webkit-details-marker {
+  display: none;
+}
+
+.lesson-accordion summary > div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.lesson-accordion summary h3 {
+  margin: 0;
+}
+
+.lesson-accordion summary span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.lesson-accordion-body {
+  display: grid;
+  gap: 12px;
+  padding: 0 16px 16px;
+}
+
+.quiz-status-badge {
+  flex: 0 0 auto;
+  width: fit-content;
+  padding: 6px 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(217, 93, 57, 0.12);
+  color: var(--coral);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.quiz-status-badge.passed {
+  background: rgba(0, 109, 119, 0.12);
+  color: var(--teal);
+}
+
+.quiz-status-badge.attempted {
+  background: rgba(184, 212, 75, 0.28);
+  color: var(--ink);
+}
+
+.lesson-rich-flow {
+  display: grid;
+  gap: 12px;
+}
+
+.hall-title {
+  margin-top: 8px;
+  color: var(--ink);
+  font-weight: 900;
+}
+
+.hall-media-block {
+  display: grid;
+  gap: 8px;
+}
+
+.hall-media-block h4 {
+  margin: 6px 0 0;
+  font-size: 15px;
+}
+
 .rich-text {
   margin: 0;
   color: var(--muted);
@@ -811,10 +897,25 @@ textarea {
   padding: 0;
   overflow: hidden;
   border: 1px solid var(--line);
-  background: #fff;
+  background: #111;
+}
+
+.media-image-button::before,
+.image-viewer-stage::before {
+  content: "";
+  position: absolute;
+  inset: -18px;
+  background-image: var(--media-fill);
+  background-position: center;
+  background-size: cover;
+  filter: blur(18px);
+  opacity: 0.58;
+  transform: scale(1.08);
 }
 
 .media-image-button img {
+  position: relative;
+  z-index: 1;
   display: block;
   width: 100%;
   max-width: 100%;
@@ -863,7 +964,7 @@ textarea {
 .image-viewer-toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 10px;
   min-width: 0;
   padding-bottom: 10px;
@@ -896,6 +997,7 @@ textarea {
 }
 
 .image-viewer-stage {
+  position: relative;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
@@ -907,6 +1009,8 @@ textarea {
 }
 
 .image-viewer-stage img {
+  position: relative;
+  z-index: 1;
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
