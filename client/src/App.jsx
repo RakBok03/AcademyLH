@@ -337,9 +337,20 @@ function formatName(user) {
 
 function Avatar({ user, size = 'md' }) {
   const photo = user?.photoUrl || user?.photo_url;
+  const [imageFailed, setImageFailed] = useState(false);
+  const letter = (formatName(user).trim().slice(0, 1) || 'A').toUpperCase();
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [photo]);
+
   return (
     <div className={cx('avatar', size === 'lg' && 'avatar-lg')}>
-      {photo ? <img src={photo} alt="" /> : <span>{formatName(user).slice(0, 1).toUpperCase()}</span>}
+      {photo && !imageFailed ? (
+        <img src={photo} alt="" onError={() => setImageFailed(true)} />
+      ) : (
+        <span className="avatar-fallback">{letter}</span>
+      )}
     </div>
   );
 }
@@ -408,20 +419,35 @@ function HomePage({ data, setPage }) {
   );
 }
 
-function TopList({ users, title }) {
+function TopList({ users, title, variant = 'compact' }) {
+  const isLeaderboard = variant === 'leaderboard';
   return (
     <section className="list-section">
       <h2>{title}</h2>
-      <div className="list">
+      <div className={cx('list', isLeaderboard && 'leaderboard-list')}>
         {users.map((user, index) => (
-          <div className="row" key={user.id}>
-            <span className="rank">{index + 1}</span>
+          <div
+            className={cx(
+              'row',
+              isLeaderboard && 'leaderboard-row',
+              isLeaderboard && index === 0 && 'leaderboard-top1',
+              isLeaderboard && index > 0 && index < 5 && 'leaderboard-top5',
+              isLeaderboard && index >= 5 && index < 10 && 'leaderboard-top10'
+            )}
+            key={user.id}
+          >
+            <span className={cx('rank', isLeaderboard && 'leaderboard-rank')}>{index + 1}</span>
             <Avatar user={user} />
             <div className="row-main">
               <strong>{formatName(user)}</strong>
               <span>{user.title_text}</span>
             </div>
             <b>{user.title_score}</b>
+            {isLeaderboard && index < 10 && (
+              <small className="leaderboard-tier">
+                {index === 0 ? 'Топ 1' : index < 5 ? 'Топ 5' : 'Топ 10'}
+              </small>
+            )}
           </div>
         ))}
       </div>
@@ -754,7 +780,7 @@ function LeaderboardPage({ leaderboard, setPage }) {
           <p>{leaderboard.me.titleText} · {leaderboard.me.titleScore} очков</p>
         </div>
       </section>
-      <TopList users={leaderboard.top} title="Топ-5" />
+      <TopList users={leaderboard.top} title="Топ-25" variant="leaderboard" />
     </main>
   );
 }

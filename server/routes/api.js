@@ -531,7 +531,7 @@ api.get('/leaderboard', requireAuth, async (req, res) => {
      FROM users
      WHERE ${nonDemoUserSql}
      ORDER BY title_score DESC, updated_at ASC
-     LIMIT 5`
+     LIMIT 25`
   );
   const rank = await query(
     `SELECT rank FROM (

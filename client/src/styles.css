@@ -415,10 +415,113 @@ button:disabled {
   object-fit: cover;
 }
 
+.avatar-fallback {
+  line-height: 1;
+}
+
 .avatar-button {
   padding: 0;
   border-radius: 8px;
   background: transparent;
+}
+
+.leaderboard-list {
+  gap: 12px;
+}
+
+.leaderboard-row {
+  position: relative;
+  padding-right: 74px;
+  background:
+    linear-gradient(90deg, rgba(255, 252, 244, 0.96), rgba(255, 250, 240, 0.86)),
+    var(--paper-solid);
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.leaderboard-row > b {
+  margin-left: auto;
+  font-size: 17px;
+  white-space: nowrap;
+}
+
+.leaderboard-rank {
+  background: var(--teal);
+}
+
+.leaderboard-tier {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 4px 7px;
+  border-radius: 7px;
+  background: rgba(21, 21, 21, 0.07);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.leaderboard-top10 {
+  border-color: rgba(0, 109, 119, 0.28);
+  background:
+    linear-gradient(90deg, rgba(0, 109, 119, 0.13), rgba(255, 250, 240, 0.92)),
+    var(--paper-solid);
+}
+
+.leaderboard-top10 .leaderboard-rank {
+  background: var(--teal);
+}
+
+.leaderboard-top5 {
+  min-height: 76px;
+  border-color: rgba(21, 21, 21, 0.24);
+  background:
+    linear-gradient(105deg, rgba(184, 212, 75, 0.38), rgba(255, 250, 240, 0.96) 62%),
+    var(--paper-solid);
+  box-shadow: 0 10px 24px rgba(21, 21, 21, 0.1);
+}
+
+.leaderboard-top5 .leaderboard-rank {
+  background: var(--lime);
+  color: var(--ink);
+}
+
+.leaderboard-top5 .leaderboard-tier {
+  background: rgba(184, 212, 75, 0.34);
+  color: var(--ink);
+}
+
+.leaderboard-top1 {
+  min-height: 86px;
+  border-color: var(--ink);
+  color: #fffaf0;
+  background:
+    linear-gradient(132deg, #151515 0%, #25251f 58%, #b8d44b 100%);
+  box-shadow: 0 18px 34px rgba(21, 21, 21, 0.22);
+}
+
+.leaderboard-top1 .leaderboard-rank {
+  background: #fffaf0;
+  color: var(--ink);
+}
+
+.leaderboard-top1 .avatar {
+  border-color: #fffaf0;
+  background: var(--coral);
+}
+
+.leaderboard-top1 .row-main span {
+  color: rgba(255, 250, 240, 0.72);
+}
+
+.leaderboard-top1 > b {
+  color: var(--lime);
+}
+
+.leaderboard-top1 .leaderboard-tier {
+  background: rgba(255, 250, 240, 0.18);
+  color: #fffaf0;
 }
 
 .header-actions {
