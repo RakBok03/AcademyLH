@@ -371,14 +371,14 @@ async function main() {
     errors: 0
   };
 
-  await withTransaction(async (client) => {
-    const quizMap = await loadQuizMap(client);
-    const sectionMap = await loadSectionMap(client);
+  const quizMap = await loadQuizMap({ query });
+  const sectionMap = await loadSectionMap({ query });
 
-    for (const [index, user] of users.entries()) {
-      const shouldFullSync = includeZeroFull || user.score > 0;
-      const variables = shouldFullSync ? fullVariables : zeroScoreVariables;
-      try {
+  for (const [index, user] of users.entries()) {
+    const shouldFullSync = includeZeroFull || user.score > 0;
+    const variables = shouldFullSync ? fullVariables : zeroScoreVariables;
+    try {
+      await withTransaction(async (client) => {
         const vars = await getPuzzleVariables(user.telegramId, variables);
         const result = await importUser(client, user, vars, quizMap, sectionMap);
         stats.imported += 1;
@@ -386,15 +386,15 @@ async function main() {
         if (shouldFullSync) stats.fullSynced += 1;
         else stats.zeroBasicSynced += 1;
         if (result.courseCompleted) stats.courseCompleted += 1;
-        if ((index + 1) % 25 === 0 || index === users.length - 1) {
-          console.log(`Imported ${index + 1}/${users.length}`);
-        }
-      } catch (error) {
-        stats.errors += 1;
-        console.error(`Failed to import ${user.telegramId}: ${error.message}`);
+      });
+      if ((index + 1) % 25 === 0 || index === users.length - 1) {
+        console.log(`Imported ${index + 1}/${users.length}`);
       }
+    } catch (error) {
+      stats.errors += 1;
+      console.error(`Failed to import ${user.telegramId}: ${error.message}`);
     }
-  });
+  }
 
   console.log(JSON.stringify(stats, null, 2));
 }
