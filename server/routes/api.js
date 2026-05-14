@@ -327,8 +327,7 @@ async function buildSubmissionRewardUrl(submissionId) {
   const botUsername = await getTelegramBotUsername();
   if (botUsername) {
     const shortName = String(process.env.TELEGRAM_MINI_APP_SHORT_NAME || '').trim().replace(/^\/+|\/+$/g, '');
-    const path = shortName ? `${botUsername}/${shortName}` : botUsername;
-    return `https://t.me/${path}?startapp=${startParam}`;
+    if (shortName) return `https://t.me/${botUsername}/${shortName}?startapp=${startParam}`;
   }
 
   const appUrl = process.env.APP_URL || 'https://lofthallacademy.ru';
