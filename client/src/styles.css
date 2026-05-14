@@ -444,6 +444,14 @@ button:disabled {
   white-space: nowrap;
 }
 
+.leaderboard-row .row-main strong,
+.leaderboard-row .row-main span {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+}
+
 .leaderboard-rank {
   background: var(--teal);
 }
