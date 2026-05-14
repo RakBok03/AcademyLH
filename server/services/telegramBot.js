@@ -1,4 +1,31 @@
 const TELEGRAM_API = 'https://api.telegram.org';
+let cachedBotUsername;
+
+export async function getTelegramBotUsername() {
+  const configured = process.env.TELEGRAM_BOT_USERNAME;
+  if (configured) return configured.replace(/^@/, '');
+  if (cachedBotUsername !== undefined) return cachedBotUsername;
+
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) {
+    cachedBotUsername = null;
+    return cachedBotUsername;
+  }
+
+  try {
+    const response = await fetch(`${TELEGRAM_API}/bot${token}/getMe`);
+    if (!response.ok) {
+      cachedBotUsername = null;
+      return cachedBotUsername;
+    }
+    const data = await response.json();
+    cachedBotUsername = data.ok && data.result?.username ? data.result.username : null;
+    return cachedBotUsername;
+  } catch {
+    cachedBotUsername = null;
+    return cachedBotUsername;
+  }
+}
 
 export async function hasTelegramProfilePhoto(telegramId) {
   const token = process.env.TELEGRAM_BOT_TOKEN;

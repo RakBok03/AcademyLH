@@ -5,7 +5,7 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import { query, withTransaction } from '../db/pool.js';
 import { extractTelegramUser, verifyTelegramInitData } from '../services/telegramAuth.js';
-import { fetchTelegramProfilePhoto, hasTelegramProfilePhoto, sendTelegramMessage } from '../services/telegramBot.js';
+import { fetchTelegramProfilePhoto, getTelegramBotUsername, hasTelegramProfilePhoto, sendTelegramMessage } from '../services/telegramBot.js';
 import { recalculateUserScore } from '../services/scoring.js';
 import { fetchMenuFilters, fetchMissingPhotoDishes } from '../services/nocodb.js';
 import { notifyReward, sendReviewMessage } from '../services/puzzlebot.js';
@@ -315,6 +315,26 @@ function formatReviewMessage({ task, user, comment, payload }) {
   ].filter((line) => line !== null).join('\n');
 }
 
+async function buildSubmissionRewardUrl(submissionId) {
+  const startParam = `review_${submissionId}`;
+  const configuredBase = process.env.TELEGRAM_MINI_APP_DEEP_LINK_BASE;
+  if (configuredBase) {
+    const url = new URL(configuredBase);
+    url.searchParams.set('startapp', startParam);
+    return url.toString();
+  }
+
+  const botUsername = await getTelegramBotUsername();
+  if (botUsername) {
+    const shortName = String(process.env.TELEGRAM_MINI_APP_SHORT_NAME || '').trim().replace(/^\/+|\/+$/g, '');
+    const path = shortName ? `${botUsername}/${shortName}` : botUsername;
+    return `https://t.me/${path}?startapp=${startParam}`;
+  }
+
+  const appUrl = process.env.APP_URL || 'https://lofthallacademy.ru';
+  return `${appUrl}/?page=admin&submissionId=${submissionId}`;
+}
+
 api.post('/auth/telegram', async (req, res, next) => {
   try {
     const { initData, unsafeUser } = req.body || {};
@@ -622,10 +642,11 @@ api.post('/tasks/:slug/submissions', requireAuth, upload.array('files', 6), asyn
     const appUrl = process.env.APP_URL || 'https://lofthallacademy.ru';
     const reviewText = formatReviewMessage({ task, user: req.user, comment: req.body.comment, payload });
     const firstPhoto = uploadedFiles.find((file) => file.mimeType?.startsWith('image/'));
+    const rewardUrl = await buildSubmissionRewardUrl(submission.id);
     sendReviewMessage({
       text: reviewText,
       photoUrl: firstPhoto ? `${appUrl}${firstPhoto.publicUrl}` : null,
-      rewardUrl: `${appUrl}/?page=admin&submissionId=${submission.id}`
+      rewardUrl
     }).catch((error) => console.error('PuzzleBot review notification failed', error));
 
     res.status(201).json({ submission });

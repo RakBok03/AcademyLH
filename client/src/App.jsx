@@ -35,6 +35,34 @@ const statusLabels = {
 };
 
 const allowedPages = new Set(['home', 'profile', 'courses', 'tests', 'leaderboard', 'tasks', 'admin']);
+
+function getUrlParam(name) {
+  const hash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash;
+  const hashParams = new URLSearchParams(hash);
+  const searchParams = new URLSearchParams(window.location.search);
+  return hashParams.get(name) || searchParams.get(name) || '';
+}
+
+function getTelegramStartParam() {
+  const tg = window.Telegram?.WebApp;
+  return tg?.initDataUnsafe?.start_param
+    || new URLSearchParams(tg?.initData || '').get('start_param')
+    || getUrlParam('tgWebAppStartParam')
+    || getUrlParam('startapp')
+    || '';
+}
+
+function getInitialRoute() {
+  const startParam = getTelegramStartParam();
+  const reviewMatch = String(startParam).match(/^review_(\d+)$/);
+  if (reviewMatch) return { page: 'admin', submissionId: reviewMatch[1] };
+
+  const requestedPage = getUrlParam('page');
+  return {
+    page: allowedPages.has(requestedPage) ? requestedPage : 'home',
+    submissionId: getUrlParam('submissionId')
+  };
+}
 const puzzleBotMediaBase = 'https://pbt.storage.yandexcloud.net/';
 const imageExtensionPattern = /\.(avif|gif|jpe?g|jfif|png|webp)$/i;
 const urlPattern = /(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/gi;
@@ -900,6 +928,13 @@ function AdminPage({ admin, reviewSubmission, reload, setPage, selectedSubmissio
   const [quizEditId, setQuizEditId] = useState(null);
   const selectedId = Number(selectedSubmissionId || 0);
 
+  useEffect(() => {
+    if (!selectedId) return;
+    requestAnimationFrame(() => {
+      document.querySelector(`[data-submission-id="${selectedId}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    });
+  }, [selectedId, admin.submissions.length]);
+
   function editTask(task) {
     setTaskEditId(task.id);
     setTaskDraft({
@@ -959,7 +994,7 @@ function AdminPage({ admin, reviewSubmission, reload, setPage, selectedSubmissio
         <div className="list">
           {admin.submissions.length === 0 && <p className="muted">Новых заявок нет.</p>}
           {admin.submissions.map((submission) => (
-            <div className={cx('admin-item', selectedId === submission.id && 'selected-admin-item')} key={submission.id}>
+            <div className={cx('admin-item', selectedId === submission.id && 'selected-admin-item')} key={submission.id} data-submission-id={submission.id}>
               <div>
                 <strong>{submission.task_num}. {submission.task_title}</strong>
                 <span>{submission.first_name} {submission.last_name} {submission.username ? `@${submission.username}` : ''}</span>
@@ -1096,10 +1131,9 @@ function defaultQuizDraft() {
 }
 
 export function App() {
-  const query = new URLSearchParams(window.location.search);
-  const requestedPage = query.get('page');
-  const selectedSubmissionId = query.get('submissionId');
-  const [page, setPage] = useState(allowedPages.has(requestedPage) ? requestedPage : 'home');
+  const initialRoute = getInitialRoute();
+  const selectedSubmissionId = initialRoute.submissionId;
+  const [page, setPage] = useState(initialRoute.page);
   const [boot, setBoot] = useState({ loading: true, error: null });
   const [home, setHome] = useState(null);
   const [me, setMe] = useState(null);
