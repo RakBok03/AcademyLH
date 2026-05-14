@@ -10,13 +10,18 @@ import {
   Home,
   LayoutDashboard,
   Lock,
+  Maximize2,
   Medal,
+  Minus,
+  Plus,
+  RotateCcw,
   Send,
   Settings,
   Sparkles,
   Trash2,
   Trophy,
-  User
+  User,
+  X
 } from 'lucide-react';
 import { apiFetch, authenticate } from './lib/api.js';
 
@@ -101,6 +106,7 @@ function isImageMedia(file) {
 }
 
 function MediaGrid({ media, className }) {
+  const [openedImage, setOpenedImage] = useState(null);
   const items = (media || []).map((file, index) => ({
     file,
     index,
@@ -110,19 +116,115 @@ function MediaGrid({ media, className }) {
   if (!items.length) return null;
 
   return (
-    <div className={cx('media-grid', items.length === 1 && 'single', className)}>
-      {items.map(({ file, index, url }) => {
-        const label = mediaName(file, index);
-        return isImageMedia(file) ? (
-          <a className="media-image-link" href={url} target="_blank" rel="noreferrer" key={`${url}-${index}`}>
-            <img src={encodeURI(url)} alt={label} loading="lazy" />
-          </a>
-        ) : (
-          <a className="media-file-link" href={url} target="_blank" rel="noreferrer" key={`${url}-${index}`}>
-            {label}
-          </a>
-        );
-      })}
+    <>
+      <div className={cx('media-grid', items.length === 1 && 'single', className)}>
+        {items.map(({ file, index, url }) => {
+          const label = mediaName(file, index);
+          return isImageMedia(file) ? (
+            <button
+              className="media-image-button"
+              type="button"
+              onClick={() => setOpenedImage({ url, label })}
+              key={`${url}-${index}`}
+              aria-label={`Открыть фото: ${label}`}
+            >
+              <img src={encodeURI(url)} alt={label} loading="lazy" />
+              <span className="media-zoom-hint"><Maximize2 size={16} /></span>
+            </button>
+          ) : (
+            <a className="media-file-link" href={url} target="_blank" rel="noreferrer" key={`${url}-${index}`}>
+              {label}
+            </a>
+          );
+        })}
+      </div>
+      <ImageLightbox image={openedImage} onClose={() => setOpenedImage(null)} />
+    </>
+  );
+}
+
+function normalizeCourseItemTitle(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/:.*$/, '')
+    .replace(/[«»"'’]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function splitQuizzesByLesson(section) {
+  const quizzes = section.quizzes || [];
+  const usedQuizSlugs = new Set();
+  const byLessonId = new Map();
+
+  (section.lessons || []).forEach((lesson) => {
+    const lessonTitle = normalizeCourseItemTitle(lesson.title);
+    const matched = quizzes.filter((quiz) => {
+      if (usedQuizSlugs.has(quiz.slug)) return false;
+      const quizTitle = normalizeCourseItemTitle(quiz.title);
+      return lessonTitle && quizTitle && quizTitle === lessonTitle;
+    });
+    matched.forEach((quiz) => usedQuizSlugs.add(quiz.slug));
+    byLessonId.set(lesson.id, matched);
+  });
+
+  return {
+    byLessonId,
+    remainingQuizzes: quizzes.filter((quiz) => !usedQuizSlugs.has(quiz.slug))
+  };
+}
+
+function CourseQuizActions({ quizzes, openQuiz, inline = false }) {
+  if (!quizzes?.length) return null;
+  return (
+    <div className={cx('course-actions', inline && 'inline-course-actions')}>
+      {quizzes.map((quiz) => (
+        <button className="secondary" key={quiz.slug} onClick={() => openQuiz(quiz.slug)}>
+          {quiz.title} · {quiz.bestScore}/{quiz.maxScore}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ImageLightbox({ image, onClose }) {
+  const [zoom, setZoom] = useState(1);
+  const zoomIn = () => setZoom((value) => Math.min(3, Number((value + 0.25).toFixed(2))));
+  const zoomOut = () => setZoom((value) => Math.max(1, Number((value - 0.25).toFixed(2))));
+
+  useEffect(() => {
+    if (!image) return undefined;
+    setZoom(1);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') onClose();
+      if (event.key === '+' || event.key === '=') zoomIn();
+      if (event.key === '-') zoomOut();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [image, onClose]);
+
+  if (!image) return null;
+
+  return (
+    <div className="image-viewer" role="dialog" aria-modal="true" aria-label={image.label}>
+      <div className="image-viewer-toolbar">
+        <span>{image.label}</span>
+        <div className="image-viewer-actions">
+          <button type="button" onClick={zoomOut} disabled={zoom <= 1} aria-label="Уменьшить"><Minus size={18} /></button>
+          <button type="button" onClick={zoomIn} disabled={zoom >= 3} aria-label="Увеличить"><Plus size={18} /></button>
+          <button type="button" onClick={() => setZoom(1)} aria-label="Сбросить масштаб"><RotateCcw size={18} /></button>
+          <button type="button" onClick={onClose} aria-label="Закрыть"><X size={20} /></button>
+        </div>
+      </div>
+      <div className="image-viewer-stage">
+        <img src={encodeURI(image.url)} alt={image.label} style={{ transform: `scale(${zoom})` }} />
+      </div>
     </div>
   );
 }
@@ -360,6 +462,8 @@ function CoursesPage({ courses, selectedCourse, activeSectionSlug, setActiveSect
 }
 
 function CourseSectionPage({ course, section, setActiveSectionSlug, completeSection, openQuiz, setPage }) {
+  const { byLessonId, remainingQuizzes } = useMemo(() => splitQuizzesByLesson(section), [section]);
+
   return (
     <main className="page">
       <PageHeader eyebrow={course.title} title={section.title}>
@@ -379,19 +483,16 @@ function CourseSectionPage({ course, section, setActiveSectionSlug, completeSect
               <h3>{lesson.title}</h3>
               <RichText text={lesson.body} />
               <MediaGrid media={lesson.media?.slice(0, 12)} />
+              <CourseQuizActions quizzes={byLessonId.get(lesson.id)} openQuiz={openQuiz} inline />
             </article>
           ))}
         </div>
-        <div className="course-actions">
-          {section.quizzes?.map((quiz) => (
-            <button className="secondary" key={quiz.slug} onClick={() => openQuiz(quiz.slug)}>
-              {quiz.title} · {quiz.bestScore}/{quiz.maxScore}
-            </button>
-          ))}
-          {!section.quizzes?.length && section.user_status !== 'completed' && (
+        <CourseQuizActions quizzes={remainingQuizzes} openQuiz={openQuiz} />
+        {!section.quizzes?.length && section.user_status !== 'completed' && (
+          <div className="course-actions">
             <button className="primary" onClick={() => completeSection(section.slug)}>Завершить этап</button>
-          )}
-        </div>
+          </div>
+        )}
       </section>
     </main>
   );
