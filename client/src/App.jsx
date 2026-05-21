@@ -395,9 +395,9 @@ function PageHeader({ eyebrow, title, children }) {
   );
 }
 
-function BackHomeButton({ setPage }) {
+function BackHomeButton({ setPage, className = '' }) {
   return (
-    <button type="button" className="ghost compact-button" onClick={() => setPage('home')}>
+    <button type="button" className={cx('ghost compact-button', className)} onClick={() => setPage('home')}>
       <Home size={17} />
       Главная
     </button>
@@ -414,13 +414,21 @@ function Stat({ label, value, icon: Icon }) {
   );
 }
 
-function HomePage({ data, setPage }) {
+function HomePage({ data, setPage, adminMode, setAdminMode }) {
   return (
     <main className="page">
       <PageHeader eyebrow="LOFT HALL" title="Академия">
-        <button type="button" className="avatar-button" onClick={() => setPage('profile')} aria-label="Открыть профиль">
-          <Avatar user={data.user} />
-        </button>
+        <div className="header-actions">
+          {data.user.role === 'admin' && (
+            <button type="button" className={cx('mode-toggle', adminMode && 'active')} onClick={() => setAdminMode(!adminMode)}>
+              <Settings size={17} />
+              {adminMode ? 'Админ' : 'Ученик'}
+            </button>
+          )}
+          <button type="button" className="avatar-button" onClick={() => setPage('profile')} aria-label="Открыть профиль">
+            <Avatar user={data.user} />
+          </button>
+        </div>
       </PageHeader>
       <section className="hero-panel">
         <div className="surreal-mark" aria-hidden="true"><span /><span /><span /></div>
@@ -440,7 +448,7 @@ function HomePage({ data, setPage }) {
         <button onClick={() => setPage('tests')}><ClipboardList size={20} />Тесты</button>
         <button onClick={() => setPage('leaderboard')}><Trophy size={20} />Рейтинг</button>
         <button onClick={() => setPage('tasks')}><Send size={20} />Задания</button>
-        {data.user.role === 'admin' && <button onClick={() => setPage('admin')}><Settings size={20} />Админка</button>}
+        {data.user.role === 'admin' && adminMode && <button onClick={() => setPage('admin')}><Settings size={20} />Админка</button>}
       </section>
       <TopList users={data.leaderboard} title="Топ-5" />
     </main>
@@ -555,7 +563,7 @@ function ProfilePage({ me, setPage }) {
   );
 }
 
-function CoursesPage({ courses, selectedCourse, activeSectionSlug, setActiveSectionSlug, openCourse, completeSection, openQuiz, setPage }) {
+function CoursesPage({ courses, selectedCourse, activeSectionSlug, setActiveSectionSlug, openCourse, completeSection, openQuiz, setPage, adminMode, saveCourse }) {
   const activeSection = selectedCourse?.sections.find((section) => section.slug === activeSectionSlug);
 
   if (selectedCourse && activeSection) {
@@ -590,6 +598,9 @@ function CoursesPage({ courses, selectedCourse, activeSectionSlug, setActiveSect
       </section>
       {selectedCourse && (
         <>
+          {adminMode && (
+            <CourseAdminTools selectedCourse={selectedCourse} saveCourse={saveCourse} />
+          )}
           <section className="hero-panel compact">
             <Medal size={30} />
             <div>
@@ -616,6 +627,86 @@ function CoursesPage({ courses, selectedCourse, activeSectionSlug, setActiveSect
   );
 }
 
+function CourseAdminTools({ selectedCourse, saveCourse }) {
+  const [draft, setDraft] = useState(defaultCourseDraft());
+  const [editingId, setEditingId] = useState(null);
+
+  useEffect(() => {
+    if (!selectedCourse?.course) return;
+    setEditingId(selectedCourse.course.id);
+    setDraft(courseToDraft(selectedCourse));
+  }, [selectedCourse?.course?.id]);
+
+  function updateSection(sectionIndex, patch) {
+    setDraft((current) => ({
+      ...current,
+      sections: current.sections.map((section, index) => index === sectionIndex ? { ...section, ...patch } : section)
+    }));
+  }
+
+  function updateLesson(sectionIndex, lessonIndex, patch) {
+    setDraft((current) => ({
+      ...current,
+      sections: current.sections.map((section, index) => {
+        if (index !== sectionIndex) return section;
+        return {
+          ...section,
+          lessons: section.lessons.map((lesson, currentLessonIndex) => currentLessonIndex === lessonIndex ? { ...lesson, ...patch } : lesson)
+        };
+      })
+    }));
+  }
+
+  async function submitCourse(event) {
+    event.preventDefault();
+    await saveCourse(editingId, courseDraftToPayload(draft));
+  }
+
+  return (
+    <details className="admin-panel course-admin-builder">
+      <summary><span>{editingId ? 'Редактировать курс' : 'Создать курс'}</span><Settings size={18} /></summary>
+      <form className="editor-form" onSubmit={submitCourse}>
+        <div className="field-grid">
+          <label>Название курса<input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} required /></label>
+          <label>Уровень сложности<input value={draft.difficulty} onChange={(event) => setDraft({ ...draft, difficulty: event.target.value })} /></label>
+        </div>
+        <label>Описание курса<textarea rows="3" value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label>
+        <div className="builder-stack">
+          {draft.sections.map((section, sectionIndex) => (
+            <div className="builder-card" key={sectionIndex}>
+              <div className="builder-card-head">
+                <strong>Раздел {sectionIndex + 1}</strong>
+                {draft.sections.length > 1 && <button type="button" className="ghost compact-button" onClick={() => setDraft((current) => ({ ...current, sections: current.sections.filter((_, index) => index !== sectionIndex) }))}><Trash2 size={15} />Удалить</button>}
+              </div>
+              <label>Название раздела<input value={section.title} onChange={(event) => updateSection(sectionIndex, { title: event.target.value })} /></label>
+              <label>Вводный текст раздела<textarea rows="3" value={section.description} onChange={(event) => updateSection(sectionIndex, { description: event.target.value })} /></label>
+              <div className="builder-stack">
+                {section.lessons.map((lesson, lessonIndex) => (
+                  <div className="builder-card nested-builder-card" key={lessonIndex}>
+                    <div className="builder-card-head">
+                      <strong>Подраздел {lessonIndex + 1}</strong>
+                      {section.lessons.length > 1 && <button type="button" className="ghost compact-button" onClick={() => updateSection(sectionIndex, { lessons: section.lessons.filter((_, index) => index !== lessonIndex) })}><Trash2 size={15} />Удалить</button>}
+                    </div>
+                    <label>Название<input value={lesson.title} onChange={(event) => updateLesson(sectionIndex, lessonIndex, { title: event.target.value })} /></label>
+                    <label>Текст<textarea rows="5" value={lesson.body} onChange={(event) => updateLesson(sectionIndex, lessonIndex, { body: event.target.value })} /></label>
+                    <label>Медиа-ссылки<textarea rows="3" value={lesson.mediaText} placeholder="Одна ссылка или путь на строку" onChange={(event) => updateLesson(sectionIndex, lessonIndex, { mediaText: event.target.value })} /></label>
+                  </div>
+                ))}
+                <button type="button" className="ghost compact-button" onClick={() => updateSection(sectionIndex, { lessons: [...section.lessons, defaultCourseLesson()] })}><Plus size={16} />Добавить подраздел</button>
+              </div>
+            </div>
+          ))}
+          <button type="button" className="ghost compact-button" onClick={() => setDraft((current) => ({ ...current, sections: [...current.sections, defaultCourseSection()] }))}><Plus size={16} />Добавить раздел</button>
+        </div>
+        <div className="admin-card-actions">
+          <button className="primary">{editingId ? 'Сохранить курс' : 'Создать курс'}</button>
+          <button type="button" className="ghost" onClick={() => { setEditingId(null); setDraft(defaultCourseDraft()); }}>Новый курс</button>
+        </div>
+      </form>
+    </details>
+  );
+}
+
 function CourseSectionPage({ course, section, setActiveSectionSlug, completeSection, openQuiz, setPage }) {
   const { byLessonId, remainingQuizzes } = useMemo(() => splitQuizzesByLesson(section), [section]);
   const isSpacesSection = section.slug === 'spaces';
@@ -623,12 +714,12 @@ function CourseSectionPage({ course, section, setActiveSectionSlug, completeSect
   return (
     <main className="page">
       <PageHeader eyebrow={course.title} title={section.title}>
-        <div className="header-actions">
+        <div className="header-actions course-section-actions">
+          <BackHomeButton setPage={setPage} className="sticky-home-button" />
           <button type="button" className="ghost compact-button" onClick={() => setActiveSectionSlug(null)}>
             <BookOpen size={17} />
             К курсу
           </button>
-          <BackHomeButton setPage={setPage} />
         </div>
       </PageHeader>
       <section className="list-section">
@@ -678,7 +769,7 @@ function SpaceLessonCard({ lesson, quizzes, openQuiz }) {
   );
 }
 
-function TestsPage({ quizzes, openQuiz, openContentPage, setPage }) {
+function TestsPage({ quizzes, openQuiz, openContentPage, openSeriesDescription, setPage }) {
   const grouped = useMemo(() => quizzes.reduce((acc, quiz) => {
     acc[quiz.category] ||= [];
     acc[quiz.category].push(quiz);
@@ -694,10 +785,14 @@ function TestsPage({ quizzes, openQuiz, openContentPage, setPage }) {
         <section className="list-section" key={category}>
           <div className="section-title-row">
             <h2>{category}</h2>
-            {category.toLowerCase().includes('алкоголь') && (
-              <button className="ghost compact-button" onClick={() => openContentPage('alcohol-history')}>
+            {(items.find((quiz) => quiz.description)?.description || category.toLowerCase().includes('алкоголь')) && (
+              <button className="ghost compact-button" onClick={() => {
+                const description = items.find((quiz) => quiz.description)?.description;
+                if (description) openSeriesDescription(category, description);
+                else openContentPage('alcohol-history');
+              }}>
                 <BookOpen size={17} />
-                История
+                Описание
               </button>
             )}
           </div>
@@ -922,11 +1017,12 @@ function TasksPage({ tasks, submitTask, loadMenu, loadMenuFilters, setPage }) {
 
 function AdminPage({ admin, reviewSubmission, reload, setPage, selectedSubmissionId, saveTask, deleteTask, saveQuiz, deleteQuiz, loadAdminQuiz }) {
   const [reward, setReward] = useState({});
-  const [taskDraft, setTaskDraft] = useState({ title: '', description: '', taskNum: 1, requiresMenu: false, active: true, orderIndex: 100 });
+  const [taskDraft, setTaskDraft] = useState({ title: '', description: '' });
   const [taskEditId, setTaskEditId] = useState(null);
   const [quizDraft, setQuizDraft] = useState(defaultQuizDraft());
   const [quizEditId, setQuizEditId] = useState(null);
   const selectedId = Number(selectedSubmissionId || 0);
+  const quizSeries = useMemo(() => [...new Set(admin.quizzes.map((quiz) => quiz.category).filter(Boolean))].sort(), [admin.quizzes]);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -935,37 +1031,38 @@ function AdminPage({ admin, reviewSubmission, reload, setPage, selectedSubmissio
     });
   }, [selectedId, admin.submissions.length]);
 
+  useEffect(() => {
+    if (quizDraft.seriesMode === 'existing' && !quizDraft.series && quizSeries.length) {
+      setQuizDraft((draft) => ({ ...draft, series: quizSeries[0] }));
+    }
+  }, [quizSeries, quizDraft.seriesMode, quizDraft.series]);
+
   function editTask(task) {
     setTaskEditId(task.id);
     setTaskDraft({
       title: task.title,
-      description: task.description,
-      taskNum: task.task_num,
-      requiresMenu: task.requires_menu,
-      active: task.active,
-      orderIndex: task.order_index
+      description: task.description
     });
   }
 
   async function editQuiz(quiz) {
     const full = await loadAdminQuiz(quiz.id);
+    const difficulty = ['easy', 'middle', 'hard'].includes(full.difficulty) ? full.difficulty : 'another';
     setQuizEditId(full.id);
     setQuizDraft({
-      title: full.title,
-      category: full.category,
-      source: full.source,
-      difficulty: full.difficulty,
+      seriesMode: 'existing',
+      series: full.category,
+      newSeries: '',
+      difficulty,
+      customDifficulty: difficulty === 'another' ? full.difficulty : '',
       weight: full.weight,
-      rewardPoints: full.reward_points,
-      passScore: full.pass_score,
-      description: full.description,
-      sectionSlug: admin.sectionSlugs.includes(full.section_slug) ? full.section_slug : '',
-      courseRequired: full.course_required,
-      orderIndex: full.order_index,
-      questionsText: JSON.stringify(full.questions.map((question) => ({
+      hasDescription: Boolean(full.description),
+      descriptionBlocks: parseDescriptionBlocks(full.description),
+      questions: (full.questions.length ? full.questions : [defaultQuizQuestion()]).map((question) => ({
         text: question.text,
+        mediaUrl: question.media_url || '',
         options: question.options.map((option) => ({ text: option.text, isCorrect: option.isCorrect }))
-      })), null, 2)
+      }))
     });
   }
 
@@ -973,15 +1070,56 @@ function AdminPage({ admin, reviewSubmission, reload, setPage, selectedSubmissio
     event.preventDefault();
     await saveTask(taskEditId, taskDraft);
     setTaskEditId(null);
-    setTaskDraft({ title: '', description: '', taskNum: 1, requiresMenu: false, active: true, orderIndex: 100 });
+    setTaskDraft({ title: '', description: '' });
   }
 
   async function submitQuizForm(event) {
     event.preventDefault();
-    const questions = JSON.parse(quizDraft.questionsText);
-    await saveQuiz(quizEditId, { ...quizDraft, questions });
+    const series = (quizDraft.seriesMode === 'new' ? quizDraft.newSeries : quizDraft.series).trim();
+    const difficulty = (quizDraft.difficulty === 'another' ? quizDraft.customDifficulty : quizDraft.difficulty).trim();
+    if (!series || !difficulty) return alert('Заполните серию и сложность теста.');
+    const questions = quizDraft.questions
+      .map((question) => ({
+        text: question.text.trim(),
+        mediaUrl: question.mediaUrl?.trim() || '',
+        options: question.options
+          .map((option) => ({ text: option.text.trim(), isCorrect: Boolean(option.isCorrect) }))
+          .filter((option) => option.text)
+      }))
+      .filter((question) => question.text && question.options.length >= 2 && question.options.some((option) => option.isCorrect));
+    if (!questions.length || questions.length !== quizDraft.questions.length) {
+      return alert('В каждом вопросе должен быть текст, минимум два варианта и один правильный ответ.');
+    }
+    await saveQuiz(quizEditId, {
+      title: `${series}: ${difficulty}`,
+      category: series,
+      difficulty,
+      weight: Number(quizDraft.weight || 1),
+      description: quizDraft.hasDescription ? serializeDescriptionBlocks(quizDraft.descriptionBlocks) : '',
+      questions
+    });
     setQuizEditId(null);
     setQuizDraft(defaultQuizDraft());
+  }
+
+  function updateQuestion(index, patch) {
+    setQuizDraft((draft) => ({
+      ...draft,
+      questions: draft.questions.map((question, questionIndex) => questionIndex === index ? { ...question, ...patch } : question)
+    }));
+  }
+
+  function updateOption(questionIndex, optionIndex, patch) {
+    setQuizDraft((draft) => ({
+      ...draft,
+      questions: draft.questions.map((question, currentQuestionIndex) => {
+        if (currentQuestionIndex !== questionIndex) return question;
+        return {
+          ...question,
+          options: question.options.map((option, currentOptionIndex) => currentOptionIndex === optionIndex ? { ...option, ...patch } : option)
+        };
+      })
+    }));
   }
 
   return (
@@ -1018,69 +1156,135 @@ function AdminPage({ admin, reviewSubmission, reload, setPage, selectedSubmissio
       </details>
       <details className="admin-panel">
         <summary><span>Задания</span><ChevronDown size={18} /></summary>
-        <form className="editor-form" onSubmit={submitTaskForm}>
-          <div className="field-grid">
-            <label>Номер<input type="number" value={taskDraft.taskNum} onChange={(event) => setTaskDraft({ ...taskDraft, taskNum: event.target.value })} /></label>
-            <label>Порядок<input type="number" value={taskDraft.orderIndex} onChange={(event) => setTaskDraft({ ...taskDraft, orderIndex: event.target.value })} /></label>
-          </div>
-          <label>Название<input value={taskDraft.title} onChange={(event) => setTaskDraft({ ...taskDraft, title: event.target.value })} required /></label>
-          <label>Описание<textarea rows="7" value={taskDraft.description} onChange={(event) => setTaskDraft({ ...taskDraft, description: event.target.value })} /></label>
-          <label className="check-line"><input type="checkbox" checked={taskDraft.requiresMenu} onChange={(event) => setTaskDraft({ ...taskDraft, requiresMenu: event.target.checked })} /> Использует меню NocoDB</label>
-          <label className="check-line"><input type="checkbox" checked={taskDraft.active} onChange={(event) => setTaskDraft({ ...taskDraft, active: event.target.checked })} /> Активно</label>
-          <button className="primary">{taskEditId ? 'Сохранить задание' : 'Добавить задание'}</button>
-        </form>
+        <details className="admin-subpanel">
+          <summary><span>Добавить задание</span><Plus size={18} /></summary>
+          <form className="editor-form" onSubmit={submitTaskForm}>
+            <label>Название<input value={taskEditId ? '' : taskDraft.title} onChange={(event) => setTaskDraft({ ...taskDraft, title: event.target.value })} disabled={Boolean(taskEditId)} required /></label>
+            <label>Описание<textarea rows="7" value={taskEditId ? '' : taskDraft.description} onChange={(event) => setTaskDraft({ ...taskDraft, description: event.target.value })} disabled={Boolean(taskEditId)} /></label>
+            <button className="primary" disabled={Boolean(taskEditId)}>Создать задание</button>
+          </form>
+        </details>
         <div className="list">
           {admin.tasks.map((task) => (
-            <div className="row" key={task.id}>
-              <div className="row-main">
-                <strong>{task.task_num}. {task.title}</strong>
-                <span>{task.active ? 'активно' : 'скрыто'}</span>
+            <div className="admin-manage-card" key={task.id}>
+              <div className="admin-card-heading">
+                <span>Задание {task.task_num}</span>
+                <strong>{task.title}</strong>
               </div>
-              <button className="ghost compact-button" onClick={() => editTask(task)}><Edit3 size={16} />Изменить</button>
-              <button className="secondary compact-button" onClick={() => deleteTask(task.id)}><Trash2 size={16} />Удалить</button>
+              {taskEditId === task.id ? (
+                <form className="inline-editor-form" onSubmit={submitTaskForm}>
+                  <label>Название<input value={taskDraft.title} onChange={(event) => setTaskDraft({ ...taskDraft, title: event.target.value })} required /></label>
+                  <label>Описание<textarea rows="6" value={taskDraft.description} onChange={(event) => setTaskDraft({ ...taskDraft, description: event.target.value })} /></label>
+                  <div className="admin-card-actions">
+                    <button className="primary">Сохранить</button>
+                    <button type="button" className="ghost" onClick={() => { setTaskEditId(null); setTaskDraft({ title: '', description: '' }); }}>Отмена</button>
+                  </div>
+                </form>
+              ) : (
+                <>
+                  <p>{task.description}</p>
+                  <small>Поля «комментарий» и «медиа» автоматически появляются у пользователя при выполнении задания.</small>
+                  <div className="admin-card-actions">
+                    <button className="ghost compact-button" onClick={() => editTask(task)}><Edit3 size={16} />Изменить</button>
+                    <button className="secondary compact-button" onClick={() => deleteTask(task.id)}><Trash2 size={16} />Удалить</button>
+                  </div>
+                </>
+              )}
             </div>
           ))}
         </div>
       </details>
       <details className="admin-panel">
         <summary><span>Тесты</span><ChevronDown size={18} /></summary>
-        <form className="editor-form" onSubmit={submitQuizForm}>
-          <div className="field-grid">
-            <label>Тип
-              <select value={quizDraft.source} onChange={(event) => setQuizDraft({ ...quizDraft, source: event.target.value })}>
-                <option value="tests">Раздел Тесты</option>
-                <option value="course">Тест курса</option>
-              </select>
-            </label>
-            <label>Сложность<input value={quizDraft.difficulty} onChange={(event) => setQuizDraft({ ...quizDraft, difficulty: event.target.value })} /></label>
-          </div>
-          <label>Название<input value={quizDraft.title} onChange={(event) => setQuizDraft({ ...quizDraft, title: event.target.value })} required /></label>
-          <label>Категория<input value={quizDraft.category} onChange={(event) => setQuizDraft({ ...quizDraft, category: event.target.value })} required /></label>
-          <div className="field-grid">
-            <label>Вес<input type="number" value={quizDraft.weight} onChange={(event) => setQuizDraft({ ...quizDraft, weight: event.target.value })} /></label>
-            <label>Проходной балл<input type="number" value={quizDraft.passScore} onChange={(event) => setQuizDraft({ ...quizDraft, passScore: event.target.value })} /></label>
-            <label>Баллы курса<input type="number" value={quizDraft.rewardPoints} onChange={(event) => setQuizDraft({ ...quizDraft, rewardPoints: event.target.value })} /></label>
-            <label>Раздел курса
-              <select value={quizDraft.sectionSlug} onChange={(event) => setQuizDraft({ ...quizDraft, sectionSlug: event.target.value })}>
-                <option value="">Не привязан</option>
-                {admin.sectionSlugs.map((slug) => <option key={slug} value={slug}>{slug}</option>)}
-              </select>
-            </label>
-          </div>
-          <label>Описание<textarea rows="3" value={quizDraft.description} onChange={(event) => setQuizDraft({ ...quizDraft, description: event.target.value })} /></label>
-          <label>Вопросы JSON<textarea className="textarea-code" rows="12" value={quizDraft.questionsText} onChange={(event) => setQuizDraft({ ...quizDraft, questionsText: event.target.value })} /></label>
-          <label className="check-line"><input type="checkbox" checked={quizDraft.courseRequired} onChange={(event) => setQuizDraft({ ...quizDraft, courseRequired: event.target.checked })} /> Обязательный тест курса</label>
-          <button className="primary">{quizEditId ? 'Сохранить тест' : 'Добавить тест / уровень'}</button>
-        </form>
-        <div className="list">
-          {admin.quizzes.map((quiz) => (
-            <div className="row" key={quiz.id}>
-              <div className="row-main">
-                <strong>{quiz.title}</strong>
-                <span>{quiz.source === 'course' ? 'курс' : 'раздел Тесты'} · {quiz.category} · {quiz.difficulty}</span>
+        <details className="admin-subpanel" open={Boolean(quizEditId)}>
+          <summary><span>{quizEditId ? 'Редактировать тест' : 'Создать тест'}</span><Plus size={18} /></summary>
+          <form className="editor-form" onSubmit={submitQuizForm}>
+            <div className="field-grid">
+              <label>Сложность
+                <select value={quizDraft.difficulty} onChange={(event) => setQuizDraft({ ...quizDraft, difficulty: event.target.value })}>
+                  <option value="easy">easy</option>
+                  <option value="middle">middle</option>
+                  <option value="hard">hard</option>
+                  <option value="another">другое</option>
+                </select>
+              </label>
+              <label>Вес<input type="number" min="1" value={quizDraft.weight} onChange={(event) => setQuizDraft({ ...quizDraft, weight: event.target.value })} /></label>
+            </div>
+            {quizDraft.difficulty === 'another' && (
+              <label>Своя сложность<input value={quizDraft.customDifficulty} onChange={(event) => setQuizDraft({ ...quizDraft, customDifficulty: event.target.value })} required /></label>
+            )}
+            <div className="field-grid">
+              <label>Серия
+                <select value={quizDraft.seriesMode} onChange={(event) => setQuizDraft({ ...quizDraft, seriesMode: event.target.value })}>
+                  <option value="existing">Выбрать серию</option>
+                  <option value="new">Создать серию</option>
+                </select>
+              </label>
+              {quizDraft.seriesMode === 'existing' ? (
+                <label>Название серии
+                  <select value={quizDraft.series} onChange={(event) => setQuizDraft({ ...quizDraft, series: event.target.value })}>
+                    <option value="">Выберите серию</option>
+                    {quizSeries.map((series) => <option key={series} value={series}>{series}</option>)}
+                  </select>
+                </label>
+              ) : (
+                <label>Новая серия<input value={quizDraft.newSeries} onChange={(event) => setQuizDraft({ ...quizDraft, newSeries: event.target.value })} required /></label>
+              )}
+            </div>
+            <label className="check-line"><input type="checkbox" checked={quizDraft.hasDescription} onChange={(event) => setQuizDraft({ ...quizDraft, hasDescription: event.target.checked })} /> Добавить описание серии</label>
+            {quizDraft.hasDescription && (
+              <div className="builder-stack">
+                {quizDraft.descriptionBlocks.map((block, index) => (
+                  <div className="builder-card" key={index}>
+                    <strong>Блок описания {index + 1}</strong>
+                    <label>Текст<textarea rows="4" value={block.text} onChange={(event) => setQuizDraft((draft) => ({ ...draft, descriptionBlocks: draft.descriptionBlocks.map((item, itemIndex) => itemIndex === index ? { ...item, text: event.target.value } : item) }))} /></label>
+                    <label>Медиа-ссылки<input value={block.mediaText} placeholder="Одна ссылка или путь на строку" onChange={(event) => setQuizDraft((draft) => ({ ...draft, descriptionBlocks: draft.descriptionBlocks.map((item, itemIndex) => itemIndex === index ? { ...item, mediaText: event.target.value } : item) }))} /></label>
+                  </div>
+                ))}
+                <button type="button" className="ghost compact-button" onClick={() => setQuizDraft((draft) => ({ ...draft, descriptionBlocks: [...draft.descriptionBlocks, defaultDescriptionBlock()] }))}><Plus size={16} />Добавить блок описания</button>
               </div>
-              <button className="ghost compact-button" onClick={() => editQuiz(quiz)}><Edit3 size={16} />Изменить</button>
-              <button className="secondary compact-button" onClick={() => deleteQuiz(quiz.id)}><Trash2 size={16} />Удалить</button>
+            )}
+            <div className="builder-stack">
+              {quizDraft.questions.map((question, questionIndex) => (
+                <div className="builder-card" key={questionIndex}>
+                  <div className="builder-card-head">
+                    <strong>Вопрос {questionIndex + 1}</strong>
+                    {quizDraft.questions.length > 1 && <button type="button" className="ghost compact-button" onClick={() => setQuizDraft((draft) => ({ ...draft, questions: draft.questions.filter((_, index) => index !== questionIndex) }))}><Trash2 size={15} />Удалить</button>}
+                  </div>
+                  <label>Текст вопроса<textarea rows="3" value={question.text} onChange={(event) => updateQuestion(questionIndex, { text: event.target.value })} /></label>
+                  <label>Фото или медиа к вопросу<input value={question.mediaUrl} onChange={(event) => updateQuestion(questionIndex, { mediaUrl: event.target.value })} /></label>
+                  <div className="option-builder">
+                    {question.options.map((option, optionIndex) => (
+                      <label className="option-line" key={optionIndex}>
+                        <input type="radio" name={`correct-${questionIndex}`} checked={option.isCorrect} onChange={() => updateQuestion(questionIndex, { options: question.options.map((item, index) => ({ ...item, isCorrect: index === optionIndex })) })} />
+                        <input value={option.text} placeholder={`Вариант ${optionIndex + 1}`} onChange={(event) => updateOption(questionIndex, optionIndex, { text: event.target.value })} />
+                        {question.options.length > 2 && <button type="button" className="icon-button small" onClick={() => updateQuestion(questionIndex, { options: question.options.filter((_, index) => index !== optionIndex) })}>×</button>}
+                      </label>
+                    ))}
+                  </div>
+                  <button type="button" className="ghost compact-button" onClick={() => updateQuestion(questionIndex, { options: [...question.options, { text: '', isCorrect: false }] })}><Plus size={16} />Добавить вариант</button>
+                </div>
+              ))}
+              <button type="button" className="ghost compact-button" onClick={() => setQuizDraft((draft) => ({ ...draft, questions: [...draft.questions, defaultQuizQuestion()] }))}><Plus size={16} />Добавить вопрос</button>
+            </div>
+            <div className="admin-card-actions">
+              <button className="primary">{quizEditId ? 'Сохранить тест' : 'Создать тест'}</button>
+              {quizEditId && <button type="button" className="ghost" onClick={() => { setQuizEditId(null); setQuizDraft(defaultQuizDraft()); }}>Отмена</button>}
+            </div>
+          </form>
+        </details>
+        <div className="admin-card-grid">
+          {admin.quizzes.map((quiz) => (
+            <div className="admin-manage-card" key={quiz.id}>
+              <div className="admin-card-heading">
+                <span>{quiz.category}</span>
+                <strong>{quiz.title.replace(`${quiz.category}: `, '')}</strong>
+              </div>
+              <p>{quiz.difficulty} · {quiz.max_score} вопросов · вес {quiz.weight}</p>
+              <div className="admin-card-actions">
+                <button className="ghost compact-button" onClick={() => editQuiz(quiz)}><Edit3 size={16} />Изменить</button>
+                <button className="secondary compact-button" onClick={() => deleteQuiz(quiz.id)}><Trash2 size={16} />Удалить</button>
+              </div>
             </div>
           ))}
         </div>
@@ -1104,29 +1308,130 @@ function AdminPage({ admin, reviewSubmission, reload, setPage, selectedSubmissio
   );
 }
 
-function defaultQuizDraft() {
+function defaultQuizQuestion() {
+  return {
+    text: '',
+    mediaUrl: '',
+    options: [
+      { text: '', isCorrect: true },
+      { text: '', isCorrect: false },
+      { text: '', isCorrect: false }
+    ]
+  };
+}
+
+function defaultDescriptionBlock() {
+  return { text: '', mediaText: '' };
+}
+
+function mediaTextToArray(value) {
+  return String(value || '')
+    .split('\n')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function parseDescriptionBlocks(description) {
+  if (!description) return [defaultDescriptionBlock()];
+  try {
+    const parsed = JSON.parse(description);
+    if (Array.isArray(parsed)) {
+      return parsed.map((block) => ({
+        text: block.text || '',
+        mediaText: Array.isArray(block.media) ? block.media.join('\n') : ''
+      }));
+    }
+  } catch {
+    // Older tests store a plain text description.
+  }
+  return [{ text: description, mediaText: '' }];
+}
+
+function serializeDescriptionBlocks(blocks) {
+  return JSON.stringify(
+    blocks
+      .map((block) => ({ text: block.text || '', media: mediaTextToArray(block.mediaText) }))
+      .filter((block) => block.text.trim() || block.media.length)
+  );
+}
+
+function defaultCourseLesson() {
+  return { title: '', body: '', mediaText: '' };
+}
+
+function defaultCourseSection() {
   return {
     title: '',
-    category: '',
-    source: 'tests',
-    difficulty: 'easy',
-    weight: 1,
-    rewardPoints: 0,
-    passScore: 1,
     description: '',
-    sectionSlug: '',
-    courseRequired: false,
-    orderIndex: 100,
-    questionsText: JSON.stringify([
-      {
-        text: 'Вопрос',
-        options: [
-          { text: 'Правильный ответ', isCorrect: true },
-          { text: 'Неверный ответ', isCorrect: false },
-          { text: 'Неверный ответ', isCorrect: false }
-        ]
-      }
-    ], null, 2)
+    lessons: [defaultCourseLesson()]
+  };
+}
+
+function defaultCourseDraft() {
+  return {
+    title: '',
+    difficulty: 'начальный',
+    description: '',
+    sections: [defaultCourseSection()]
+  };
+}
+
+function mediaToText(media) {
+  return (Array.isArray(media) ? media : [])
+    .map((item) => typeof item === 'string' ? item : item.url || item.path || item.media_url || item.mediaUrl || '')
+    .filter(Boolean)
+    .join('\n');
+}
+
+function courseToDraft(selectedCourse) {
+  return {
+    title: selectedCourse.course.title || '',
+    difficulty: selectedCourse.course.difficulty || 'начальный',
+    description: selectedCourse.course.description || '',
+    sections: (selectedCourse.sections || []).map((section) => ({
+      id: section.id,
+      title: section.title || '',
+      description: section.description || '',
+      lessons: (section.lessons?.length ? section.lessons : [defaultCourseLesson()]).map((lesson) => ({
+        id: lesson.id,
+        title: lesson.title || '',
+        body: lesson.body || '',
+        mediaText: mediaToText(lesson.media)
+      }))
+    }))
+  };
+}
+
+function courseDraftToPayload(draft) {
+  return {
+    title: draft.title,
+    difficulty: draft.difficulty,
+    description: draft.description,
+    sections: draft.sections.map((section) => ({
+      id: section.id,
+      title: section.title,
+      description: section.description,
+      lessons: section.lessons.map((lesson) => ({
+        id: lesson.id,
+        title: lesson.title,
+        body: lesson.body,
+        mediaText: lesson.mediaText
+      }))
+    }))
+  };
+}
+
+function defaultQuizDraft() {
+  return {
+    seriesMode: 'existing',
+    series: '',
+    newSeries: '',
+    difficulty: 'easy',
+    customDifficulty: '',
+    weight: 1,
+    hasDescription: false,
+    descriptionBlocks: [defaultDescriptionBlock()],
+    questions: [defaultQuizQuestion()]
   };
 }
 
@@ -1146,6 +1451,7 @@ export function App() {
   const [leaderboard, setLeaderboard] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [admin, setAdmin] = useState(null);
+  const [adminMode, setAdminMode] = useState(false);
 
   async function loadAll() {
     const [homeData, meData, coursesData, quizzesData, leaderboardData, tasksData] = await Promise.all([
@@ -1225,6 +1531,14 @@ export function App() {
     setContentPage(payload.page);
   }
 
+  function openSeriesDescription(title, description) {
+    const body = parseDescriptionBlocks(description).map((block) => ({
+      text: block.text,
+      media: mediaTextToArray(block.mediaText)
+    }));
+    setContentPage({ title, body });
+  }
+
   async function submitQuiz(slug, answers) {
     const result = await apiFetch(`/quizzes/${slug}/attempt`, {
       method: 'POST',
@@ -1288,6 +1602,17 @@ export function App() {
     await loadAll();
   }
 
+  async function saveCourse(id, payload) {
+    await apiFetch(id ? `/admin/courses/${id}` : '/admin/courses', {
+      method: id ? 'PUT' : 'POST',
+      body: JSON.stringify(payload)
+    });
+    await loadAdmin();
+    const coursesData = await apiFetch('/courses');
+    setCourses(coursesData.courses);
+    if (selectedCourse?.course?.slug) await loadCourse(selectedCourse.course.slug, activeSectionSlug);
+  }
+
   if (boot.loading) return <div className="splash"><LayoutDashboard size={34} /><span>AcademyLH</span></div>;
   if (boot.error) return <div className="splash error"><Lock size={34} /><span>{boot.error}</span></div>;
   if (quizState) return <QuizPage quizState={quizState} submitQuiz={submitQuiz} close={() => setQuizState(null)} />;
@@ -1295,10 +1620,10 @@ export function App() {
 
   return (
     <div className="app-shell">
-      {page === 'home' && <HomePage data={home} setPage={setPage} />}
+      {page === 'home' && <HomePage data={home} setPage={setPage} adminMode={adminMode} setAdminMode={setAdminMode} />}
       {page === 'profile' && <ProfilePage me={me} setPage={setPage} />}
-      {page === 'courses' && <CoursesPage courses={courses} selectedCourse={selectedCourse} activeSectionSlug={activeSectionSlug} setActiveSectionSlug={setActiveSectionSlug} openCourse={openCourse} completeSection={completeSection} openQuiz={openQuiz} setPage={setPage} />}
-      {page === 'tests' && <TestsPage quizzes={quizzes} openQuiz={openQuiz} openContentPage={openContentPage} setPage={setPage} />}
+      {page === 'courses' && <CoursesPage courses={courses} selectedCourse={selectedCourse} activeSectionSlug={activeSectionSlug} setActiveSectionSlug={setActiveSectionSlug} openCourse={openCourse} completeSection={completeSection} openQuiz={openQuiz} setPage={setPage} adminMode={home.user.role === 'admin' && adminMode} saveCourse={saveCourse} />}
+      {page === 'tests' && <TestsPage quizzes={quizzes} openQuiz={openQuiz} openContentPage={openContentPage} openSeriesDescription={openSeriesDescription} setPage={setPage} />}
       {page === 'leaderboard' && <LeaderboardPage leaderboard={leaderboard} setPage={setPage} />}
       {page === 'tasks' && <TasksPage tasks={tasks} submitTask={submitTask} loadMenu={loadMenu} loadMenuFilters={() => apiFetch('/tasks/dish-photo/menu-filters')} setPage={setPage} />}
       {page === 'admin' && home.user.role === 'admin' && admin && <AdminPage admin={admin} reviewSubmission={reviewSubmission} reload={loadAdmin} setPage={setPage} selectedSubmissionId={selectedSubmissionId} saveTask={saveTask} deleteTask={deleteTask} saveQuiz={saveQuiz} deleteQuiz={deleteQuiz} loadAdminQuiz={loadAdminQuiz} />}

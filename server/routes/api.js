@@ -131,6 +131,37 @@ function slugify(value) {
     .slice(0, 80) || `item-${Date.now()}`;
 }
 
+async function createUniqueSlug(client, table, baseValue, excludeId = null) {
+  const base = slugify(baseValue);
+  let slug = base;
+  let index = 2;
+  while (true) {
+    const params = excludeId ? [slug, excludeId] : [slug];
+    const result = await client.query(
+      `SELECT id FROM ${table} WHERE slug = $1${excludeId ? ' AND id <> $2' : ''} LIMIT 1`,
+      params
+    );
+    if (!result.rows[0]) return slug;
+    slug = `${base}-${index}`;
+    index += 1;
+  }
+}
+
+async function renumberActiveTasks(client) {
+  await client.query(
+    `WITH ordered AS (
+       SELECT id, ROW_NUMBER() OVER (ORDER BY order_index, task_num, id) AS num
+       FROM tasks
+       WHERE active = true
+     )
+     UPDATE tasks t
+     SET task_num = ordered.num,
+         order_index = ordered.num
+     FROM ordered
+     WHERE t.id = ordered.id`
+  );
+}
+
 async function isSectionCompleted(userId, sectionId) {
   const stored = await query(
     `SELECT 1 FROM user_progress
@@ -660,6 +691,136 @@ api.get('/content-pages/:slug', requireAuth, async (req, res) => {
   res.json({ page: page.rows[0] });
 });
 
+async function readAdminCourses() {
+  const courses = await query('SELECT * FROM courses ORDER BY order_index, id');
+  const sections = await query(
+    `SELECT cs.*
+     FROM course_sections cs
+     JOIN courses c ON c.id = cs.course_id
+     ORDER BY c.order_index, cs.order_index, cs.id`
+  );
+  const lessons = await query(
+    `SELECT cl.*
+     FROM course_lessons cl
+     JOIN course_sections cs ON cs.id = cl.section_id
+     JOIN courses c ON c.id = cs.course_id
+     ORDER BY c.order_index, cs.order_index, cl.order_index, cl.id`
+  );
+  const lessonsBySection = new Map();
+  for (const lesson of lessons.rows) {
+    if (!lessonsBySection.has(lesson.section_id)) lessonsBySection.set(lesson.section_id, []);
+    lessonsBySection.get(lesson.section_id).push(lesson);
+  }
+  const sectionsByCourse = new Map();
+  for (const section of sections.rows) {
+    if (!sectionsByCourse.has(section.course_id)) sectionsByCourse.set(section.course_id, []);
+    sectionsByCourse.get(section.course_id).push({ ...section, lessons: lessonsBySection.get(section.id) || [] });
+  }
+  return courses.rows.map((course) => ({ ...course, sections: sectionsByCourse.get(course.id) || [] }));
+}
+
+api.get('/admin/courses', requireAuth, requireAdmin, async (_req, res) => {
+  res.json({ courses: await readAdminCourses() });
+});
+
+async function saveCourseSections(client, courseId, sections = []) {
+  for (const [sectionIndex, section] of sections.entries()) {
+    if (!section.title) continue;
+    const orderIndex = sectionIndex + 1;
+    let sectionId = section.id ? Number(section.id) : null;
+    if (sectionId) {
+      const updated = await client.query(
+        `UPDATE course_sections
+         SET title = $1, description = $2, order_index = $3
+         WHERE id = $4 AND course_id = $5
+         RETURNING id`,
+        [section.title, section.description || '', orderIndex, sectionId, courseId]
+      );
+      sectionId = updated.rows[0]?.id || null;
+    }
+    if (!sectionId) {
+      const slug = await createUniqueSlug(client, 'course_sections', section.title);
+      const created = await client.query(
+        `INSERT INTO course_sections (course_id, slug, title, description, order_index)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING id`,
+        [courseId, slug, section.title, section.description || '', orderIndex]
+      );
+      sectionId = created.rows[0].id;
+    }
+
+    for (const [lessonIndex, lesson] of (section.lessons || []).entries()) {
+      if (!lesson.title && !lesson.body) continue;
+      const media = Array.isArray(lesson.media)
+        ? lesson.media
+        : String(lesson.mediaText || '')
+          .split('\n')
+          .map((item) => item.trim())
+          .filter(Boolean);
+      if (lesson.id) {
+        await client.query(
+          `UPDATE course_lessons
+           SET title = $1, body = $2, media = $3::jsonb, order_index = $4
+           WHERE id = $5 AND section_id = $6`,
+          [lesson.title || 'Материал', lesson.body || '', JSON.stringify(media), lessonIndex + 1, lesson.id, sectionId]
+        );
+      } else {
+        const slug = await createUniqueSlug(client, 'course_lessons', `${section.title}-${lesson.title || 'material'}`);
+        await client.query(
+          `INSERT INTO course_lessons (section_id, slug, title, body, media, order_index)
+           VALUES ($1, $2, $3, $4, $5::jsonb, $6)`,
+          [sectionId, slug, lesson.title || 'Материал', lesson.body || '', JSON.stringify(media), lessonIndex + 1]
+        );
+      }
+    }
+  }
+}
+
+api.post('/admin/courses', requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const body = req.body || {};
+    if (!body.title) return res.status(400).json({ error: 'Course title is required' });
+    const course = await withTransaction(async (client) => {
+      const slug = await createUniqueSlug(client, 'courses', body.title);
+      const order = await client.query('SELECT COALESCE(MAX(order_index), 0) + 1 AS next_order FROM courses');
+      const created = await client.query(
+        `INSERT INTO courses (slug, title, difficulty, description, order_index)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING *`,
+        [slug, body.title, body.difficulty || 'начальный', body.description || '', Number(order.rows[0]?.next_order || 1)]
+      );
+      await saveCourseSections(client, created.rows[0].id, body.sections || []);
+      return created.rows[0];
+    });
+    res.status(201).json({ course });
+  } catch (error) {
+    next(error);
+  }
+});
+
+api.put('/admin/courses/:id', requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const body = req.body || {};
+    if (!body.title) return res.status(400).json({ error: 'Course title is required' });
+    const course = await withTransaction(async (client) => {
+      const updated = await client.query(
+        `UPDATE courses
+         SET title = $1, difficulty = $2, description = $3
+         WHERE id = $4
+         RETURNING *`,
+        [body.title, body.difficulty || 'начальный', body.description || '', req.params.id]
+      );
+      if (!updated.rows[0]) return null;
+      await saveCourseSections(client, updated.rows[0].id, body.sections || []);
+      return updated.rows[0];
+    });
+    if (!course) return res.status(404).json({ error: 'Course not found' });
+    res.json({ course });
+  } catch (error) {
+    next(error);
+  }
+});
+
 api.get('/admin/users', requireAuth, requireAdmin, async (_req, res) => {
   const users = await query(
     `SELECT id, telegram_id, username, first_name, last_name, photo_url, role, title_score, title_text, academy_level, updated_at
@@ -744,49 +905,64 @@ api.post('/admin/submissions/:id/review', requireAuth, requireAdmin, async (req,
 });
 
 api.get('/admin/tasks', requireAuth, requireAdmin, async (_req, res) => {
-  const tasks = await query('SELECT * FROM tasks ORDER BY active DESC, order_index, task_num, id');
+  const tasks = await query('SELECT * FROM tasks WHERE active = true ORDER BY task_num, order_index, id');
   res.json({ tasks: tasks.rows });
 });
 
 api.post('/admin/tasks', requireAuth, requireAdmin, async (req, res, next) => {
   try {
-    const { title, description = '', taskNum, requiresMenu = false, active = true, orderIndex = 100 } = req.body || {};
+    const { title, description = '' } = req.body || {};
     if (!title) return res.status(400).json({ error: 'Task title is required' });
-    const slug = req.body.slug || slugify(title);
-    const result = await query(
-      `INSERT INTO tasks (slug, task_num, title, description, requires_menu, active, order_index)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING *`,
-      [slug, Number(taskNum || 1), title, description, Boolean(requiresMenu), Boolean(active), Number(orderIndex || 100)]
-    );
+    const result = await withTransaction(async (client) => {
+      const number = await client.query('SELECT COALESCE(MAX(task_num), 0) + 1 AS next_num FROM tasks WHERE active = true');
+      const taskNum = Number(number.rows[0]?.next_num || 1);
+      const slug = req.body.slug || await createUniqueSlug(client, 'tasks', title);
+      const inserted = await client.query(
+        `INSERT INTO tasks (slug, task_num, title, description, requires_menu, active, order_index)
+         VALUES ($1, $2, $3, $4, false, true, $2)
+         RETURNING *`,
+        [slug, taskNum, title, description]
+      );
+      await renumberActiveTasks(client);
+      return inserted;
+    });
     res.status(201).json({ task: result.rows[0] });
   } catch (error) {
     next(error);
   }
 });
 
-api.put('/admin/tasks/:id', requireAuth, requireAdmin, async (req, res) => {
-  const { title, description = '', taskNum, requiresMenu = false, active = true, orderIndex = 100 } = req.body || {};
-  const result = await query(
-    `UPDATE tasks
-     SET task_num = $1,
-         title = $2,
-         description = $3,
-         requires_menu = $4,
-         active = $5,
-         order_index = $6
-     WHERE id = $7
-     RETURNING *`,
-    [Number(taskNum || 1), title, description, Boolean(requiresMenu), Boolean(active), Number(orderIndex || 100), req.params.id]
-  );
-  if (!result.rows[0]) return res.status(404).json({ error: 'Task not found' });
-  res.json({ task: result.rows[0] });
+api.put('/admin/tasks/:id', requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const { title, description = '' } = req.body || {};
+    if (!title) return res.status(400).json({ error: 'Task title is required' });
+    const result = await query(
+      `UPDATE tasks
+       SET title = $1,
+           description = $2
+       WHERE id = $3 AND active = true
+       RETURNING *`,
+      [title, description, req.params.id]
+    );
+    if (!result.rows[0]) return res.status(404).json({ error: 'Task not found' });
+    res.json({ task: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
 });
 
-api.delete('/admin/tasks/:id', requireAuth, requireAdmin, async (req, res) => {
-  const result = await query('UPDATE tasks SET active = false WHERE id = $1 RETURNING *', [req.params.id]);
-  if (!result.rows[0]) return res.status(404).json({ error: 'Task not found' });
-  res.json({ task: result.rows[0] });
+api.delete('/admin/tasks/:id', requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const result = await withTransaction(async (client) => {
+      const deleted = await client.query('UPDATE tasks SET active = false WHERE id = $1 RETURNING *', [req.params.id]);
+      if (deleted.rows[0]) await renumberActiveTasks(client);
+      return deleted;
+    });
+    if (!result.rows[0]) return res.status(404).json({ error: 'Task not found' });
+    res.json({ task: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
 });
 
 async function replaceQuizQuestions(client, quizId, questions) {
@@ -835,7 +1011,8 @@ api.get('/admin/quizzes', requireAuth, requireAdmin, async (_req, res) => {
     `SELECT q.*, cs.slug AS section_slug
      FROM quizzes q
      LEFT JOIN course_sections cs ON cs.id = q.section_id
-     ORDER BY q.source, q.category, q.order_index, q.id`
+     WHERE q.source = 'tests'
+     ORDER BY q.category, q.order_index, q.id`
   );
   res.json({ quizzes: quizzes.rows });
 });
@@ -856,11 +1033,10 @@ api.post('/admin/quizzes', requireAuth, requireAdmin, async (req, res, next) => 
   try {
     const body = req.body || {};
     if (!body.title || !body.category || !body.questions?.length) {
-      return res.status(400).json({ error: 'Quiz title, category and questions are required' });
+      return res.status(400).json({ error: 'Quiz series, title and questions are required' });
     }
-    const sectionId = await resolveSectionId(body.sectionSlug);
-    const slug = body.slug || slugify(`${body.category}-${body.difficulty || 'easy'}-${body.title}`);
     const quiz = await withTransaction(async (client) => {
+      const slug = body.slug || await createUniqueSlug(client, 'quizzes', `${body.category}-${body.difficulty || 'easy'}-${body.title}`);
       const result = await client.query(
         `INSERT INTO quizzes (slug, title, category, source, difficulty, weight, reward_points, pass_score, max_score, description, section_id, course_required, order_index)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
@@ -869,15 +1045,15 @@ api.post('/admin/quizzes', requireAuth, requireAdmin, async (req, res, next) => 
           slug,
           body.title,
           body.category,
-          body.source || 'tests',
+          'tests',
           body.difficulty || 'easy',
           Number(body.weight || 1),
-          Number(body.rewardPoints || 0),
-          Number(body.passScore || body.questions.length),
+          0,
+          1,
           body.questions.length,
           body.description || '',
-          sectionId,
-          Boolean(body.courseRequired),
+          null,
+          false,
           Number(body.orderIndex || 100)
         ]
       );
@@ -893,7 +1069,6 @@ api.post('/admin/quizzes', requireAuth, requireAdmin, async (req, res, next) => 
 api.put('/admin/quizzes/:id', requireAuth, requireAdmin, async (req, res, next) => {
   try {
     const body = req.body || {};
-    const sectionId = await resolveSectionId(body.sectionSlug);
     const quiz = await withTransaction(async (client) => {
       const result = await client.query(
         `UPDATE quizzes
@@ -909,20 +1084,20 @@ api.put('/admin/quizzes/:id', requireAuth, requireAdmin, async (req, res, next) 
              section_id = $10,
              course_required = $11,
              order_index = $12
-         WHERE id = $13
+         WHERE id = $13 AND source = 'tests'
          RETURNING *`,
         [
           body.title,
           body.category,
-          body.source || 'tests',
+          'tests',
           body.difficulty || 'easy',
           Number(body.weight || 1),
-          Number(body.rewardPoints || 0),
-          Number(body.passScore || body.questions?.length || 0),
+          0,
+          1,
           Number(body.questions?.length || body.maxScore || 0),
           body.description || '',
-          sectionId,
-          Boolean(body.courseRequired),
+          null,
+          false,
           Number(body.orderIndex || 100),
           req.params.id
         ]
@@ -939,7 +1114,7 @@ api.put('/admin/quizzes/:id', requireAuth, requireAdmin, async (req, res, next) 
 });
 
 api.delete('/admin/quizzes/:id', requireAuth, requireAdmin, async (req, res) => {
-  const result = await query('DELETE FROM quizzes WHERE id = $1 RETURNING id', [req.params.id]);
+  const result = await query("DELETE FROM quizzes WHERE id = $1 AND source = 'tests' RETURNING id", [req.params.id]);
   if (!result.rows[0]) return res.status(404).json({ error: 'Quiz not found' });
   res.json({ ok: true });
 });

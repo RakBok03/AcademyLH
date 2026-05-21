@@ -425,6 +425,24 @@ button:disabled {
   background: transparent;
 }
 
+.mode-toggle {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper-solid);
+  color: var(--ink);
+  font-weight: 900;
+}
+
+.mode-toggle.active {
+  border-color: var(--ink);
+  background: var(--lime);
+}
+
 .leaderboard-list {
   gap: 12px;
 }
@@ -1158,6 +1176,22 @@ textarea {
   margin: 0 16px 16px;
 }
 
+.admin-subpanel {
+  margin: 0 16px 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 252, 244, 0.64);
+}
+
+.admin-subpanel summary {
+  min-height: 54px;
+  padding: 12px 14px;
+}
+
+.admin-subpanel .editor-form {
+  margin: 0 12px 12px;
+}
+
 .editor-form {
   display: grid;
   gap: 12px;
@@ -1182,6 +1216,136 @@ textarea {
   font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
   font-size: 12px;
   line-height: 1.45;
+}
+
+.admin-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 16px 16px;
+}
+
+.admin-manage-card,
+.builder-card,
+.admin-inline-note {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper-solid);
+}
+
+.admin-manage-card {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-manage-card p,
+.admin-manage-card small,
+.admin-inline-note span {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.admin-card-heading {
+  display: grid;
+  gap: 4px;
+}
+
+.admin-card-heading span {
+  color: var(--teal);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.admin-card-heading strong {
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+
+.admin-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.inline-editor-form,
+.builder-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.builder-card {
+  display: grid;
+  gap: 10px;
+}
+
+.nested-builder-card {
+  background: rgba(245, 242, 234, 0.78);
+}
+
+.builder-card-head,
+.option-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.builder-card-head {
+  justify-content: space-between;
+}
+
+.option-builder {
+  display: grid;
+  gap: 8px;
+}
+
+.option-line {
+  grid-template-columns: auto 1fr auto;
+  color: var(--ink);
+}
+
+.option-line input[type="radio"] {
+  width: auto;
+  min-height: auto;
+}
+
+.icon-button.small {
+  width: 36px;
+  height: 36px;
+  font-size: 20px;
+}
+
+.admin-inline-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 14px;
+}
+
+.course-admin-builder {
+  margin-bottom: 16px;
+}
+
+.admin-inline-note > div {
+  display: grid;
+  gap: 4px;
+}
+
+.course-section-actions {
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.sticky-home-button {
+  position: sticky;
+  top: 12px;
+  z-index: 5;
+  background: var(--paper-solid);
 }
 
 .icon-button {
@@ -1259,5 +1423,9 @@ textarea {
 
   .admin-item {
     display: grid;
+  }
+
+  .admin-card-grid {
+    grid-template-columns: 1fr;
   }
 }
