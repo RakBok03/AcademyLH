@@ -49,6 +49,14 @@ function normalizeBlocks(blocks) {
     }
     if (current.text.trim() || current.media.length) normalized.push(current);
   }
+  const first = normalized[0];
+  if (first?.text?.trim() && first?.media?.length) {
+    return [
+      { text: '', media: first.media },
+      { text: first.text, media: [] },
+      ...normalized.slice(1)
+    ];
+  }
   return normalized;
 }
 
