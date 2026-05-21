@@ -559,8 +559,21 @@ button:disabled {
   min-width: 0;
 }
 
+.page-header:has(.course-section-actions) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(118px, auto);
+  align-items: start;
+}
+
 .course-list {
   grid-template-columns: 1fr;
+}
+
+.course-admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 14px;
 }
 
 .section-grid {
@@ -1273,6 +1286,19 @@ textarea {
   align-items: center;
 }
 
+.builder-panel-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px 16px 0;
+}
+
+.builder-panel-head h2 {
+  margin: 0;
+  font-size: 24px;
+}
+
 .inline-editor-form,
 .builder-stack {
   display: grid;
@@ -1286,6 +1312,55 @@ textarea {
 
 .nested-builder-card {
   background: rgba(245, 242, 234, 0.78);
+}
+
+.content-block-card {
+  background: rgba(255, 252, 244, 0.78);
+}
+
+.builder-details {
+  padding: 0;
+  overflow: hidden;
+}
+
+.builder-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.builder-summary::-webkit-details-marker {
+  display: none;
+}
+
+.builder-summary > span {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.builder-summary small {
+  color: var(--muted);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.builder-details[open] .builder-summary {
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 12px;
+}
+
+.builder-details-body {
+  display: grid;
+  gap: 10px;
+  padding: 0 14px 14px;
 }
 
 .builder-card-head,
@@ -1398,6 +1473,16 @@ textarea {
   margin-bottom: 16px;
 }
 
+.lesson-block-flow {
+  display: grid;
+  gap: 14px;
+}
+
+.lesson-content-block {
+  display: grid;
+  gap: 10px;
+}
+
 .admin-inline-note > div {
   display: grid;
   gap: 4px;
@@ -1405,12 +1490,23 @@ textarea {
 
 .course-section-actions {
   flex-direction: column;
-  align-items: flex-end;
+  align-items: stretch;
+  flex-wrap: nowrap;
+  width: 128px;
+  max-width: 34vw;
+  gap: 8px;
+}
+
+.course-section-actions .ghost {
+  width: 100%;
+  min-width: 0;
+  justify-content: flex-start;
+  padding: 0 10px;
+  white-space: nowrap;
 }
 
 .sticky-home-button {
-  position: sticky;
-  top: 12px;
+  position: static;
   z-index: 5;
   background: var(--paper-solid);
 }

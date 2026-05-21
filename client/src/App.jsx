@@ -206,6 +206,11 @@ function splitLessonMedia(media = []) {
 }
 
 function LessonContent({ lesson, inlineMedia = false }) {
+  const contentBlocks = parseLessonContentBlocks(lesson.body);
+  if (contentBlocks) {
+    return <LessonBlockContent blocks={contentBlocks} />;
+  }
+
   const media = lesson.media || [];
   if (!inlineMedia) {
     return (
@@ -217,6 +222,19 @@ function LessonContent({ lesson, inlineMedia = false }) {
   }
 
   return <RichTextWithInlineMedia text={lesson.body} media={media} />;
+}
+
+function LessonBlockContent({ blocks }) {
+  return (
+    <div className="lesson-block-flow">
+      {blocks.map((block, index) => (
+        <div className="lesson-content-block" key={index}>
+          <RichText text={block.text} />
+          <MediaGrid media={block.media} />
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function RichTextWithInlineMedia({ text, media }) {
@@ -565,6 +583,11 @@ function ProfilePage({ me, setPage }) {
 
 function CoursesPage({ courses, selectedCourse, activeSectionSlug, setActiveSectionSlug, openCourse, completeSection, openQuiz, setPage, adminMode, saveCourse }) {
   const activeSection = selectedCourse?.sections.find((section) => section.slug === activeSectionSlug);
+  const [courseEditorMode, setCourseEditorMode] = useState(null);
+
+  useEffect(() => {
+    if (!adminMode) setCourseEditorMode(null);
+  }, [adminMode]);
 
   if (selectedCourse && activeSection) {
     return (
@@ -584,6 +607,14 @@ function CoursesPage({ courses, selectedCourse, activeSectionSlug, setActiveSect
       <PageHeader eyebrow="Курсы" title="Обучение">
         <BackHomeButton setPage={setPage} />
       </PageHeader>
+      {adminMode && (
+        <section className="course-admin-actions">
+          <button type="button" className="primary compact-button" onClick={() => setCourseEditorMode('create')}><Plus size={17} />Создать курс</button>
+          {selectedCourse && (
+            <button type="button" className="ghost compact-button" onClick={() => setCourseEditorMode('edit')}><Edit3 size={17} />Редактировать выбранный</button>
+          )}
+        </section>
+      )}
       <section className="course-list">
         {courses.map((course) => (
           <button className={cx('course-card', selectedCourse?.course.slug === course.slug && 'selected')} key={course.slug} onClick={() => openCourse(course.slug)}>
@@ -596,11 +627,18 @@ function CoursesPage({ courses, selectedCourse, activeSectionSlug, setActiveSect
           </button>
         ))}
       </section>
+      {adminMode && courseEditorMode && (
+        <CourseAdminTools
+          selectedCourse={courseEditorMode === 'edit' ? selectedCourse : null}
+          saveCourse={async (id, payload) => {
+            await saveCourse(id, payload);
+            setCourseEditorMode(null);
+          }}
+          onClose={() => setCourseEditorMode(null)}
+        />
+      )}
       {selectedCourse && (
         <>
-          {adminMode && (
-            <CourseAdminTools selectedCourse={selectedCourse} saveCourse={saveCourse} />
-          )}
           <section className="hero-panel compact">
             <Medal size={30} />
             <div>
@@ -627,14 +665,18 @@ function CoursesPage({ courses, selectedCourse, activeSectionSlug, setActiveSect
   );
 }
 
-function CourseAdminTools({ selectedCourse, saveCourse }) {
+function CourseAdminTools({ selectedCourse, saveCourse, onClose }) {
   const [draft, setDraft] = useState(defaultCourseDraft());
   const [editingId, setEditingId] = useState(null);
 
   useEffect(() => {
-    if (!selectedCourse?.course) return;
-    setEditingId(selectedCourse.course.id);
-    setDraft(courseToDraft(selectedCourse));
+    if (selectedCourse?.course) {
+      setEditingId(selectedCourse.course.id);
+      setDraft(courseToDraft(selectedCourse));
+      return;
+    }
+    setEditingId(null);
+    setDraft(defaultCourseDraft());
   }, [selectedCourse?.course?.id]);
 
   function updateSection(sectionIndex, patch) {
@@ -657,14 +699,26 @@ function CourseAdminTools({ selectedCourse, saveCourse }) {
     }));
   }
 
+  function updateLessonBlock(sectionIndex, lessonIndex, blockIndex, patch) {
+    updateLesson(sectionIndex, lessonIndex, {
+      blocks: draft.sections[sectionIndex].lessons[lessonIndex].blocks.map((block, index) => index === blockIndex ? { ...block, ...patch } : block)
+    });
+  }
+
   async function submitCourse(event) {
     event.preventDefault();
     await saveCourse(editingId, courseDraftToPayload(draft));
   }
 
   return (
-    <details className="admin-panel course-admin-builder">
-      <summary><span>{editingId ? 'Редактировать курс' : 'Создать курс'}</span><Settings size={18} /></summary>
+    <section className="admin-panel course-admin-builder">
+      <div className="builder-panel-head">
+        <div>
+          <span className="eyebrow">{editingId ? 'Редактирование' : 'Новый курс'}</span>
+          <h2>{editingId ? draft.title || 'Редактировать курс' : 'Создать курс'}</h2>
+        </div>
+        <button type="button" className="icon-button" onClick={onClose} aria-label="Закрыть">×</button>
+      </div>
       <form className="editor-form" onSubmit={submitCourse}>
         <div className="field-grid">
           <label>Название курса<input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} required /></label>
@@ -673,42 +727,58 @@ function CourseAdminTools({ selectedCourse, saveCourse }) {
         <label>Описание курса<textarea rows="3" value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label>
         <div className="builder-stack">
           {draft.sections.map((section, sectionIndex) => (
-            <div className="builder-card" key={sectionIndex}>
-              <div className="builder-card-head">
-                <strong>Раздел {sectionIndex + 1}</strong>
-                {draft.sections.length > 1 && <button type="button" className="ghost compact-button" onClick={() => setDraft((current) => ({ ...current, sections: current.sections.filter((_, index) => index !== sectionIndex) }))}><Trash2 size={15} />Удалить</button>}
-              </div>
-              <label>Название раздела<input value={section.title} onChange={(event) => updateSection(sectionIndex, { title: event.target.value })} /></label>
-              <label>Вводный текст раздела<textarea rows="3" value={section.description} onChange={(event) => updateSection(sectionIndex, { description: event.target.value })} /></label>
+            <details className="builder-card builder-details" key={sectionIndex} open={sectionIndex === 0}>
+              <summary className="builder-summary">
+                <span><strong>Раздел {sectionIndex + 1}</strong><small>{section.title || 'Без названия'}</small></span>
+                {draft.sections.length > 1 && <button type="button" className="ghost compact-button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); setDraft((current) => ({ ...current, sections: current.sections.filter((_, index) => index !== sectionIndex) })); }}><Trash2 size={15} />Удалить</button>}
+              </summary>
+              <div className="builder-details-body">
+                <label>Название раздела<input value={section.title} onChange={(event) => updateSection(sectionIndex, { title: event.target.value })} /></label>
+                <label>Вводный текст раздела<textarea rows="3" value={section.description} onChange={(event) => updateSection(sectionIndex, { description: event.target.value })} /></label>
               <div className="builder-stack">
                 {section.lessons.map((lesson, lessonIndex) => (
-                  <div className="builder-card nested-builder-card" key={lessonIndex}>
-                    <div className="builder-card-head">
-                      <strong>Подраздел {lessonIndex + 1}</strong>
-                      {section.lessons.length > 1 && <button type="button" className="ghost compact-button" onClick={() => updateSection(sectionIndex, { lessons: section.lessons.filter((_, index) => index !== lessonIndex) })}><Trash2 size={15} />Удалить</button>}
+                  <details className="builder-card nested-builder-card builder-details" key={lessonIndex}>
+                    <summary className="builder-summary">
+                      <span><strong>Подраздел {lessonIndex + 1}</strong><small>{lesson.title || 'Без названия'}</small></span>
+                      {section.lessons.length > 1 && <button type="button" className="ghost compact-button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); updateSection(sectionIndex, { lessons: section.lessons.filter((_, index) => index !== lessonIndex) }); }}><Trash2 size={15} />Удалить</button>}
+                    </summary>
+                    <div className="builder-details-body">
+                      <label>Название<input value={lesson.title} onChange={(event) => updateLesson(sectionIndex, lessonIndex, { title: event.target.value })} /></label>
+                      <p className="field-note">Медиа появляется ровно в том блоке, где оно загружено: сначала текст блока, затем его фото/файлы, потом следующий блок.</p>
+                      <div className="builder-stack">
+                        {lesson.blocks.map((block, blockIndex) => (
+                          <div className="builder-card content-block-card" key={blockIndex}>
+                            <div className="builder-card-head">
+                              <strong>Блок материала {blockIndex + 1}</strong>
+                              {lesson.blocks.length > 1 && <button type="button" className="ghost compact-button" onClick={() => updateLesson(sectionIndex, lessonIndex, { blocks: lesson.blocks.filter((_, index) => index !== blockIndex) })}><Trash2 size={15} />Удалить</button>}
+                            </div>
+                            <label>Текст блока<textarea rows="5" value={block.text} onChange={(event) => updateLessonBlock(sectionIndex, lessonIndex, blockIndex, { text: event.target.value })} /></label>
+                            <MediaUploadField
+                              label="Медиа этого блока"
+                              value={block.mediaText}
+                              multiple
+                              onChange={(mediaText) => updateLessonBlock(sectionIndex, lessonIndex, blockIndex, { mediaText })}
+                            />
+                          </div>
+                        ))}
+                        <button type="button" className="ghost compact-button" onClick={() => updateLesson(sectionIndex, lessonIndex, { blocks: [...lesson.blocks, defaultContentBlock()] })}><Plus size={16} />Добавить блок материала</button>
+                      </div>
                     </div>
-                    <label>Название<input value={lesson.title} onChange={(event) => updateLesson(sectionIndex, lessonIndex, { title: event.target.value })} /></label>
-                    <label>Текст<textarea rows="5" value={lesson.body} onChange={(event) => updateLesson(sectionIndex, lessonIndex, { body: event.target.value })} /></label>
-                    <MediaUploadField
-                      label="Медиа"
-                      value={lesson.mediaText}
-                      multiple
-                      onChange={(mediaText) => updateLesson(sectionIndex, lessonIndex, { mediaText })}
-                    />
-                  </div>
+                  </details>
                 ))}
                 <button type="button" className="ghost compact-button" onClick={() => updateSection(sectionIndex, { lessons: [...section.lessons, defaultCourseLesson()] })}><Plus size={16} />Добавить подраздел</button>
               </div>
-            </div>
+              </div>
+            </details>
           ))}
           <button type="button" className="ghost compact-button" onClick={() => setDraft((current) => ({ ...current, sections: [...current.sections, defaultCourseSection()] }))}><Plus size={16} />Добавить раздел</button>
         </div>
         <div className="admin-card-actions">
           <button className="primary">{editingId ? 'Сохранить курс' : 'Создать курс'}</button>
-          <button type="button" className="ghost" onClick={() => { setEditingId(null); setDraft(defaultCourseDraft()); }}>Новый курс</button>
+          <button type="button" className="ghost" onClick={onClose}>Отмена</button>
         </div>
       </form>
-    </details>
+    </section>
   );
 }
 
@@ -1396,11 +1466,63 @@ function defaultDescriptionBlock() {
   return { text: '', mediaText: '' };
 }
 
+function defaultContentBlock() {
+  return { text: '', mediaText: '' };
+}
+
 function mediaTextToArray(value) {
   return String(value || '')
     .split('\n')
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function parseLessonContentBlocks(body) {
+  if (!body) return null;
+  try {
+    const parsed = JSON.parse(body);
+    if (!parsed || !Array.isArray(parsed.blocks)) return null;
+    const blocks = parsed.blocks
+      .map((block) => ({
+        text: block.text || '',
+        media: Array.isArray(block.media) ? block.media : mediaTextToArray(block.mediaText || '')
+      }))
+      .filter((block) => block.text.trim() || block.media.length);
+    return blocks.length ? blocks : null;
+  } catch {
+    return null;
+  }
+}
+
+function parseEditableLessonBlocks(lesson) {
+  const parsed = parseLessonContentBlocks(lesson.body);
+  if (parsed) {
+    return parsed.map((block) => ({
+      text: block.text,
+      mediaText: block.media.join('\n')
+    }));
+  }
+  return [{
+    text: lesson.body || '',
+    mediaText: mediaToText(lesson.media)
+  }];
+}
+
+function serializeLessonBlocks(blocks) {
+  return JSON.stringify({
+    blocks: (blocks || [])
+      .map((block) => ({
+        text: block.text || '',
+        media: mediaTextToArray(block.mediaText)
+      }))
+      .filter((block) => block.text.trim() || block.media.length)
+  });
+}
+
+function contentBlocksMediaText(blocks) {
+  return (blocks || [])
+    .flatMap((block) => mediaTextToArray(block.mediaText))
+    .join('\n');
 }
 
 function normalizeDescriptionBlock(block) {
@@ -1472,7 +1594,7 @@ function getSeriesDescriptionInfo(category, items) {
 }
 
 function defaultCourseLesson() {
-  return { title: '', body: '', mediaText: '' };
+  return { title: '', blocks: [defaultContentBlock()] };
 }
 
 function defaultCourseSection() {
@@ -1511,8 +1633,7 @@ function courseToDraft(selectedCourse) {
       lessons: (section.lessons?.length ? section.lessons : [defaultCourseLesson()]).map((lesson) => ({
         id: lesson.id,
         title: lesson.title || '',
-        body: lesson.body || '',
-        mediaText: mediaToText(lesson.media)
+        blocks: parseEditableLessonBlocks(lesson)
       }))
     }))
   };
@@ -1530,8 +1651,8 @@ function courseDraftToPayload(draft) {
       lessons: section.lessons.map((lesson) => ({
         id: lesson.id,
         title: lesson.title,
-        body: lesson.body,
-        mediaText: lesson.mediaText
+        body: serializeLessonBlocks(lesson.blocks),
+        mediaText: contentBlocksMediaText(lesson.blocks)
       }))
     }))
   };
