@@ -689,7 +689,12 @@ function CourseAdminTools({ selectedCourse, saveCourse }) {
                     </div>
                     <label>Название<input value={lesson.title} onChange={(event) => updateLesson(sectionIndex, lessonIndex, { title: event.target.value })} /></label>
                     <label>Текст<textarea rows="5" value={lesson.body} onChange={(event) => updateLesson(sectionIndex, lessonIndex, { body: event.target.value })} /></label>
-                    <label>Медиа-ссылки<textarea rows="3" value={lesson.mediaText} placeholder="Одна ссылка или путь на строку" onChange={(event) => updateLesson(sectionIndex, lessonIndex, { mediaText: event.target.value })} /></label>
+                    <MediaUploadField
+                      label="Медиа"
+                      value={lesson.mediaText}
+                      multiple
+                      onChange={(mediaText) => updateLesson(sectionIndex, lessonIndex, { mediaText })}
+                    />
                   </div>
                 ))}
                 <button type="button" className="ghost compact-button" onClick={() => updateSection(sectionIndex, { lessons: [...section.lessons, defaultCourseLesson()] })}><Plus size={16} />Добавить подраздел</button>
@@ -781,32 +786,34 @@ function TestsPage({ quizzes, openQuiz, openContentPage, openSeriesDescription, 
       <PageHeader eyebrow="Проверка знаний" title="Тесты">
         <BackHomeButton setPage={setPage} />
       </PageHeader>
-      {Object.entries(grouped).map(([category, items]) => (
-        <section className="list-section" key={category}>
-          <div className="section-title-row">
-            <h2>{category}</h2>
-            {(items.find((quiz) => quiz.description)?.description || category.toLowerCase().includes('алкоголь')) && (
-              <button className="ghost compact-button" onClick={() => {
-                const description = items.find((quiz) => quiz.description)?.description;
-                if (description) openSeriesDescription(category, description);
-                else openContentPage('alcohol-history');
-              }}>
-                <BookOpen size={17} />
-                Описание
-              </button>
-            )}
-          </div>
-          <div className="test-grid">
-            {items.map((quiz) => (
-              <button className="test-card" key={quiz.slug} onClick={() => openQuiz(quiz.slug)}>
-                <span>{quiz.difficulty}</span>
-                <strong>{quiz.title.replace(`${category}: `, '')}</strong>
-                <small>{quiz.max_score} вопросов · вес {quiz.weight}</small>
-              </button>
-            ))}
-          </div>
-        </section>
-      ))}
+      {Object.entries(grouped).map(([category, items]) => {
+        const descriptionInfo = getSeriesDescriptionInfo(category, items);
+        return (
+          <section className="list-section" key={category}>
+            <div className="section-title-row">
+              <h2>{category}</h2>
+              {descriptionInfo && (
+                <button className="ghost compact-button" onClick={() => {
+                  if (descriptionInfo.type === 'builder') openSeriesDescription(descriptionInfo.title, descriptionInfo.description);
+                  else openContentPage(descriptionInfo.slug);
+                }}>
+                  <BookOpen size={17} />
+                  {descriptionInfo.title}
+                </button>
+              )}
+            </div>
+            <div className="test-grid">
+              {items.map((quiz) => (
+                <button className="test-card" key={quiz.slug} onClick={() => openQuiz(quiz.slug)}>
+                  <span>{quiz.difficulty}</span>
+                  <strong>{quiz.title.replace(`${category}: `, '')}</strong>
+                  <small>{quiz.max_score} вопросов · вес {quiz.weight}</small>
+                </button>
+              ))}
+            </div>
+          </section>
+        );
+      })}
     </main>
   );
 }
@@ -1015,6 +1022,58 @@ function TasksPage({ tasks, submitTask, loadMenu, loadMenuFilters, setPage }) {
   );
 }
 
+function MediaUploadField({ label, value, onChange, multiple = true }) {
+  const [uploading, setUploading] = useState(false);
+  const items = mediaTextToArray(value);
+
+  async function uploadFiles(event) {
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
+    const formData = new FormData();
+    files.forEach((file) => formData.append('files', file));
+    setUploading(true);
+    try {
+      const result = await apiFetch('/admin/uploads', {
+        method: 'POST',
+        body: formData,
+        headers: {}
+      });
+      const uploaded = (result.files || []).map((file) => file.url).filter(Boolean);
+      const nextItems = multiple ? [...items, ...uploaded] : uploaded.slice(0, 1);
+      onChange(nextItems.join('\n'));
+    } catch (error) {
+      alert(error.message || 'Не удалось загрузить медиа.');
+    } finally {
+      setUploading(false);
+      event.target.value = '';
+    }
+  }
+
+  function removeItem(index) {
+    onChange(items.filter((_, itemIndex) => itemIndex !== index).join('\n'));
+  }
+
+  return (
+    <div className="media-upload-field">
+      <span>{label}</span>
+      <label className="media-picker">
+        <input type="file" multiple={multiple} accept="image/*,video/*,application/pdf" onChange={uploadFiles} disabled={uploading} />
+        <span>{uploading ? 'Загружаю...' : multiple ? 'Выбрать файлы' : 'Выбрать файл'}</span>
+      </label>
+      {items.length > 0 && (
+        <div className="media-upload-list">
+          {items.map((item, index) => (
+            <div className="media-upload-item" key={`${item}-${index}`}>
+              <a href={mediaUrl(item)} target="_blank" rel="noreferrer">{item.split('/').pop() || `Файл ${index + 1}`}</a>
+              <button type="button" className="icon-button small" onClick={() => removeItem(index)}>×</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AdminPage({ admin, reviewSubmission, reload, setPage, selectedSubmissionId, saveTask, deleteTask, saveQuiz, deleteQuiz, loadAdminQuiz }) {
   const [reward, setReward] = useState({});
   const [taskDraft, setTaskDraft] = useState({ title: '', description: '' });
@@ -1048,6 +1107,7 @@ function AdminPage({ admin, reviewSubmission, reload, setPage, selectedSubmissio
   async function editQuiz(quiz) {
     const full = await loadAdminQuiz(quiz.id);
     const difficulty = ['easy', 'middle', 'hard'].includes(full.difficulty) ? full.difficulty : 'another';
+    const description = parseSeriesDescription(full.description);
     setQuizEditId(full.id);
     setQuizDraft({
       seriesMode: 'existing',
@@ -1056,8 +1116,9 @@ function AdminPage({ admin, reviewSubmission, reload, setPage, selectedSubmissio
       difficulty,
       customDifficulty: difficulty === 'another' ? full.difficulty : '',
       weight: full.weight,
-      hasDescription: Boolean(full.description),
-      descriptionBlocks: parseDescriptionBlocks(full.description),
+      hasDescription: description.structured,
+      descriptionTitle: description.structured ? description.title : '',
+      descriptionBlocks: description.structured ? description.blocks : [defaultDescriptionBlock()],
       questions: (full.questions.length ? full.questions : [defaultQuizQuestion()]).map((question) => ({
         text: question.text,
         mediaUrl: question.media_url || '',
@@ -1095,7 +1156,7 @@ function AdminPage({ admin, reviewSubmission, reload, setPage, selectedSubmissio
       category: series,
       difficulty,
       weight: Number(quizDraft.weight || 1),
-      description: quizDraft.hasDescription ? serializeDescriptionBlocks(quizDraft.descriptionBlocks) : '',
+      description: quizDraft.hasDescription ? serializeSeriesDescription(quizDraft.descriptionTitle, quizDraft.descriptionBlocks) : '',
       questions
     });
     setQuizEditId(null);
@@ -1234,11 +1295,17 @@ function AdminPage({ admin, reviewSubmission, reload, setPage, selectedSubmissio
             <label className="check-line"><input type="checkbox" checked={quizDraft.hasDescription} onChange={(event) => setQuizDraft({ ...quizDraft, hasDescription: event.target.checked })} /> Добавить описание серии</label>
             {quizDraft.hasDescription && (
               <div className="builder-stack">
+                <label>Название описания<input value={quizDraft.descriptionTitle} placeholder="Например, История алкоголя" onChange={(event) => setQuizDraft({ ...quizDraft, descriptionTitle: event.target.value })} /></label>
                 {quizDraft.descriptionBlocks.map((block, index) => (
                   <div className="builder-card" key={index}>
                     <strong>Блок описания {index + 1}</strong>
                     <label>Текст<textarea rows="4" value={block.text} onChange={(event) => setQuizDraft((draft) => ({ ...draft, descriptionBlocks: draft.descriptionBlocks.map((item, itemIndex) => itemIndex === index ? { ...item, text: event.target.value } : item) }))} /></label>
-                    <label>Медиа-ссылки<input value={block.mediaText} placeholder="Одна ссылка или путь на строку" onChange={(event) => setQuizDraft((draft) => ({ ...draft, descriptionBlocks: draft.descriptionBlocks.map((item, itemIndex) => itemIndex === index ? { ...item, mediaText: event.target.value } : item) }))} /></label>
+                    <MediaUploadField
+                      label="Медиа блока"
+                      value={block.mediaText}
+                      multiple
+                      onChange={(mediaText) => setQuizDraft((draft) => ({ ...draft, descriptionBlocks: draft.descriptionBlocks.map((item, itemIndex) => itemIndex === index ? { ...item, mediaText } : item) }))}
+                    />
                   </div>
                 ))}
                 <button type="button" className="ghost compact-button" onClick={() => setQuizDraft((draft) => ({ ...draft, descriptionBlocks: [...draft.descriptionBlocks, defaultDescriptionBlock()] }))}><Plus size={16} />Добавить блок описания</button>
@@ -1252,7 +1319,12 @@ function AdminPage({ admin, reviewSubmission, reload, setPage, selectedSubmissio
                     {quizDraft.questions.length > 1 && <button type="button" className="ghost compact-button" onClick={() => setQuizDraft((draft) => ({ ...draft, questions: draft.questions.filter((_, index) => index !== questionIndex) }))}><Trash2 size={15} />Удалить</button>}
                   </div>
                   <label>Текст вопроса<textarea rows="3" value={question.text} onChange={(event) => updateQuestion(questionIndex, { text: event.target.value })} /></label>
-                  <label>Фото или медиа к вопросу<input value={question.mediaUrl} onChange={(event) => updateQuestion(questionIndex, { mediaUrl: event.target.value })} /></label>
+                  <MediaUploadField
+                    label="Фото или медиа к вопросу"
+                    value={question.mediaUrl}
+                    multiple={false}
+                    onChange={(mediaUrl) => updateQuestion(questionIndex, { mediaUrl })}
+                  />
                   <div className="option-builder">
                     {question.options.map((option, optionIndex) => (
                       <label className="option-line" key={optionIndex}>
@@ -1331,28 +1403,72 @@ function mediaTextToArray(value) {
     .filter(Boolean);
 }
 
-function parseDescriptionBlocks(description) {
-  if (!description) return [defaultDescriptionBlock()];
+function normalizeDescriptionBlock(block) {
+  return {
+    text: block?.text || '',
+    mediaText: Array.isArray(block?.media)
+      ? block.media.join('\n')
+      : mediaTextToArray(block?.mediaText || '').join('\n')
+  };
+}
+
+function parseSeriesDescription(description) {
+  if (!description) return { title: '', blocks: [defaultDescriptionBlock()], structured: false };
   try {
     const parsed = JSON.parse(description);
     if (Array.isArray(parsed)) {
-      return parsed.map((block) => ({
-        text: block.text || '',
-        mediaText: Array.isArray(block.media) ? block.media.join('\n') : ''
-      }));
+      return {
+        title: '',
+        blocks: parsed.length ? parsed.map(normalizeDescriptionBlock) : [defaultDescriptionBlock()],
+        structured: parsed.length > 0
+      };
+    }
+    if (parsed && typeof parsed === 'object' && Array.isArray(parsed.blocks)) {
+      return {
+        title: parsed.title || '',
+        blocks: parsed.blocks.length ? parsed.blocks.map(normalizeDescriptionBlock) : [defaultDescriptionBlock()],
+        structured: parsed.blocks.length > 0 || Boolean(parsed.title)
+      };
     }
   } catch {
     // Older tests store a plain text description.
   }
-  return [{ text: description, mediaText: '' }];
+  return { title: '', blocks: [{ text: description, mediaText: '' }], structured: false };
 }
 
-function serializeDescriptionBlocks(blocks) {
-  return JSON.stringify(
-    blocks
+function parseDescriptionBlocks(description) {
+  return parseSeriesDescription(description).blocks;
+}
+
+function serializeSeriesDescription(title, blocks) {
+  const cleanBlocks = blocks
       .map((block) => ({ text: block.text || '', media: mediaTextToArray(block.mediaText) }))
-      .filter((block) => block.text.trim() || block.media.length)
-  );
+      .filter((block) => block.text.trim() || block.media.length);
+  if (!String(title || '').trim() && cleanBlocks.length === 0) return '';
+  return JSON.stringify({
+    title: String(title || '').trim(),
+    blocks: cleanBlocks
+  });
+}
+
+function getSeriesDescriptionInfo(category, items) {
+  const quizWithDescription = items.find((quiz) => parseSeriesDescription(quiz.description).structured);
+  if (quizWithDescription) {
+    const parsed = parseSeriesDescription(quizWithDescription.description);
+    return {
+      type: 'builder',
+      title: parsed.title || category,
+      description: quizWithDescription.description
+    };
+  }
+  if (category.toLowerCase().includes('алкоголь')) {
+    return {
+      type: 'content',
+      title: 'История алкоголя',
+      slug: 'alcohol-history'
+    };
+  }
+  return null;
 }
 
 function defaultCourseLesson() {
@@ -1430,6 +1546,7 @@ function defaultQuizDraft() {
     customDifficulty: '',
     weight: 1,
     hasDescription: false,
+    descriptionTitle: '',
     descriptionBlocks: [defaultDescriptionBlock()],
     questions: [defaultQuizQuestion()]
   };
@@ -1532,11 +1649,12 @@ export function App() {
   }
 
   function openSeriesDescription(title, description) {
-    const body = parseDescriptionBlocks(description).map((block) => ({
+    const parsed = parseSeriesDescription(description);
+    const body = parsed.blocks.map((block) => ({
       text: block.text,
       media: mediaTextToArray(block.mediaText)
     }));
-    setContentPage({ title, body });
+    setContentPage({ title: parsed.title || title, body });
   }
 
   async function submitQuiz(slug, answers) {

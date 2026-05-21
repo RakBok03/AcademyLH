@@ -1314,6 +1314,73 @@ textarea {
   min-height: auto;
 }
 
+.media-upload-field {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.media-upload-field > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.media-picker {
+  display: inline-flex;
+  width: fit-content;
+}
+
+.media-picker input {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.media-picker span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--ink);
+  border-radius: 8px;
+  background: var(--ink);
+  color: #fffaf0;
+  font-size: 14px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.media-upload-list {
+  display: grid;
+  gap: 6px;
+}
+
+.media-upload-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(245, 242, 234, 0.72);
+}
+
+.media-upload-item a {
+  min-width: 0;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .icon-button.small {
   width: 36px;
   height: 36px;

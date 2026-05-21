@@ -27,7 +27,7 @@ const upload = multer({
   }),
   limits: {
     fileSize: 25 * 1024 * 1024,
-    files: 6
+    files: 12
   }
 });
 
@@ -907,6 +907,16 @@ api.post('/admin/submissions/:id/review', requireAuth, requireAdmin, async (req,
 api.get('/admin/tasks', requireAuth, requireAdmin, async (_req, res) => {
   const tasks = await query('SELECT * FROM tasks WHERE active = true ORDER BY task_num, order_index, id');
   res.json({ tasks: tasks.rows });
+});
+
+api.post('/admin/uploads', requireAuth, requireAdmin, upload.array('files', 12), async (req, res) => {
+  const files = (req.files || []).map((file) => ({
+    url: `/uploads/${file.filename}`,
+    name: file.originalname,
+    mimeType: file.mimetype,
+    size: file.size
+  }));
+  res.status(201).json({ files });
 });
 
 api.post('/admin/tasks', requireAuth, requireAdmin, async (req, res, next) => {
