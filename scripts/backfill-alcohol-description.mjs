@@ -22,12 +22,20 @@ const description = JSON.stringify({
   })).filter((block) => block.text.trim() || block.media.length)
 });
 
+await query(
+  `INSERT INTO quiz_series (name, description, updated_at)
+   VALUES ($1, $2, now())
+   ON CONFLICT (name) DO UPDATE
+   SET description = EXCLUDED.description,
+       updated_at = now()`,
+  ['Алкоголь и его история', description]
+);
+
 const result = await query(
   `UPDATE quizzes
-   SET description = $1
+   SET description = ''
    WHERE source = 'tests'
      AND category = 'Алкоголь и его история'`,
-  [description]
 );
 
 await pool.end();

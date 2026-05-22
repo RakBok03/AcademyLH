@@ -499,11 +499,15 @@ api.post('/courses/:courseSlug/sections/:sectionSlug/complete', requireAuth, asy
 
 api.get('/quizzes', requireAuth, async (req, res) => {
   const quizzes = await query(
-    `SELECT q.*,
+    `SELECT q.id, q.slug, q.title, q.category, q.source, q.difficulty, q.weight,
+            q.reward_points, q.pass_score, q.max_score, q.section_id, q.course_required, q.order_index,
+            COALESCE(NULLIF(qs.description, ''), q.description, '') AS description,
+            COALESCE(qs.description, '') AS series_description,
             COALESCE(best.best_score, 0) AS best_score,
             COALESCE(best.best_weighted_score, 0) AS best_weighted_score,
             COALESCE(best.attempts_count, 0) AS attempts_count
      FROM quizzes q
+     LEFT JOIN quiz_series qs ON qs.name = q.category
      LEFT JOIN (
        SELECT quiz_id, MAX(score) AS best_score, MAX(weighted_score) AS best_weighted_score, COUNT(*) AS attempts_count
        FROM quiz_attempts
@@ -994,10 +998,27 @@ async function replaceQuizQuestions(client, quizId, questions) {
   }
 }
 
+async function upsertQuizSeries(client, name, description = '') {
+  if (!name) return;
+  await client.query(
+    `INSERT INTO quiz_series (name, description, updated_at)
+     VALUES ($1, $2, now())
+     ON CONFLICT (name) DO UPDATE
+     SET description = EXCLUDED.description,
+         updated_at = now()`,
+    [name, description || '']
+  );
+}
+
 async function readQuizWithQuestions(quizId) {
   const quiz = await query(
-    `SELECT q.*, cs.slug AS section_slug
+    `SELECT q.id, q.slug, q.title, q.category, q.source, q.difficulty, q.weight,
+            q.reward_points, q.pass_score, q.max_score, q.section_id, q.course_required, q.order_index,
+            COALESCE(NULLIF(qs.description, ''), q.description, '') AS description,
+            COALESCE(qs.description, '') AS series_description,
+            cs.slug AS section_slug
      FROM quizzes q
+     LEFT JOIN quiz_series qs ON qs.name = q.category
      LEFT JOIN course_sections cs ON cs.id = q.section_id
      WHERE q.id = $1`,
     [quizId]
@@ -1018,13 +1039,19 @@ async function readQuizWithQuestions(quizId) {
 
 api.get('/admin/quizzes', requireAuth, requireAdmin, async (_req, res) => {
   const quizzes = await query(
-    `SELECT q.*, cs.slug AS section_slug
+    `SELECT q.id, q.slug, q.title, q.category, q.source, q.difficulty, q.weight,
+            q.reward_points, q.pass_score, q.max_score, q.section_id, q.course_required, q.order_index,
+            COALESCE(NULLIF(qs.description, ''), q.description, '') AS description,
+            COALESCE(qs.description, '') AS series_description,
+            cs.slug AS section_slug
      FROM quizzes q
+     LEFT JOIN quiz_series qs ON qs.name = q.category
      LEFT JOIN course_sections cs ON cs.id = q.section_id
      WHERE q.source = 'tests'
      ORDER BY q.category, q.order_index, q.id`
   );
-  res.json({ quizzes: quizzes.rows });
+  const series = await query('SELECT * FROM quiz_series ORDER BY name');
+  res.json({ quizzes: quizzes.rows, series: series.rows });
 });
 
 api.get('/admin/quizzes/:id', requireAuth, requireAdmin, async (req, res) => {
@@ -1046,6 +1073,7 @@ api.post('/admin/quizzes', requireAuth, requireAdmin, async (req, res, next) => 
       return res.status(400).json({ error: 'Quiz series, title and questions are required' });
     }
     const quiz = await withTransaction(async (client) => {
+      await upsertQuizSeries(client, body.category, body.description || '');
       const slug = body.slug || await createUniqueSlug(client, 'quizzes', `${body.category}-${body.difficulty || 'easy'}-${body.title}`);
       const result = await client.query(
         `INSERT INTO quizzes (slug, title, category, source, difficulty, weight, reward_points, pass_score, max_score, description, section_id, course_required, order_index)
@@ -1061,7 +1089,7 @@ api.post('/admin/quizzes', requireAuth, requireAdmin, async (req, res, next) => 
           0,
           1,
           body.questions.length,
-          body.description || '',
+          '',
           null,
           false,
           Number(body.orderIndex || 100)
@@ -1080,6 +1108,7 @@ api.put('/admin/quizzes/:id', requireAuth, requireAdmin, async (req, res, next) 
   try {
     const body = req.body || {};
     const quiz = await withTransaction(async (client) => {
+      if (body.category) await upsertQuizSeries(client, body.category, body.description || '');
       const result = await client.query(
         `UPDATE quizzes
          SET title = $1,
@@ -1105,7 +1134,7 @@ api.put('/admin/quizzes/:id', requireAuth, requireAdmin, async (req, res, next) 
           0,
           1,
           Number(body.questions?.length || body.maxScore || 0),
-          body.description || '',
+          '',
           null,
           false,
           Number(body.orderIndex || 100),

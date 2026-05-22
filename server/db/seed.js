@@ -8,6 +8,17 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const seed = JSON.parse(await fs.readFile(path.join(__dirname, 'seed-data.json'), 'utf8'));
 const allQuizzes = [...(seed.quizzes || []), ...(seed.courseQuizzes || [])];
 
+function isStructuredSeriesDescription(description) {
+  if (!description) return false;
+  try {
+    const parsed = JSON.parse(description);
+    if (Array.isArray(parsed)) return parsed.length > 0;
+    return Boolean(parsed && typeof parsed === 'object' && Array.isArray(parsed.blocks) && (parsed.blocks.length || parsed.title));
+  } catch {
+    return false;
+  }
+}
+
 await withTransaction(async (client) => {
   const sectionIds = new Map();
 
@@ -81,6 +92,26 @@ await withTransaction(async (client) => {
     await client.query('DELETE FROM quizzes WHERE slug = $1', [stale]);
   }
 
+  const seriesDescriptions = new Map();
+  for (const quiz of seed.quizzes || []) {
+    if (quiz.source !== 'tests' || !quiz.category || !isStructuredSeriesDescription(quiz.description)) continue;
+    if (!seriesDescriptions.has(quiz.category)) seriesDescriptions.set(quiz.category, quiz.description);
+  }
+  for (const quiz of seed.quizzes || []) {
+    if (quiz.source !== 'tests' || !quiz.category) continue;
+    await client.query(
+      `INSERT INTO quiz_series (name, description, updated_at)
+       VALUES ($1, $2, now())
+       ON CONFLICT (name) DO UPDATE
+       SET description = CASE
+             WHEN EXCLUDED.description <> '' THEN EXCLUDED.description
+             ELSE quiz_series.description
+           END,
+           updated_at = now()`,
+      [quiz.category, seriesDescriptions.get(quiz.category) || '']
+    );
+  }
+
   for (const [quizIndex, quiz] of allQuizzes.entries()) {
     let sectionId = null;
     if (quiz.sectionSlug) {
@@ -113,7 +144,7 @@ await withTransaction(async (client) => {
         quiz.rewardPoints || 0,
         quiz.passScore,
         quiz.maxScore,
-        quiz.description,
+        quiz.source === 'tests' ? '' : quiz.description,
         sectionId,
         Boolean(quiz.courseRequired),
         quizIndex + 1

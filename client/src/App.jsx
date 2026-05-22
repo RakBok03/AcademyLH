@@ -1144,14 +1144,198 @@ function MediaUploadField({ label, value, onChange, multiple = true }) {
   );
 }
 
+function applySeriesDescription(draft, description) {
+  const parsed = parseSeriesDescription(description);
+  return {
+    ...draft,
+    hasDescription: parsed.structured,
+    descriptionTitle: parsed.structured ? parsed.title : '',
+    descriptionBlocks: parsed.structured ? parsed.blocks : [defaultDescriptionBlock()]
+  };
+}
+
+function quizToDraft(full) {
+  const difficulty = ['easy', 'middle', 'hard'].includes(full.difficulty) ? full.difficulty : 'another';
+  const description = parseSeriesDescription(full.description);
+  return {
+    seriesMode: 'existing',
+    series: full.category,
+    newSeries: '',
+    difficulty,
+    customDifficulty: difficulty === 'another' ? full.difficulty : '',
+    weight: full.weight,
+    hasDescription: description.structured,
+    descriptionTitle: description.structured ? description.title : '',
+    descriptionBlocks: description.structured ? description.blocks : [defaultDescriptionBlock()],
+    questions: (full.questions.length ? full.questions : [defaultQuizQuestion()]).map((question) => ({
+      text: question.text,
+      mediaUrl: question.media_url || '',
+      options: question.options.map((option) => ({ text: option.text, isCorrect: option.isCorrect }))
+    }))
+  };
+}
+
+function buildQuizPayloadFromDraft(draft) {
+  const series = (draft.seriesMode === 'new' ? draft.newSeries : draft.series).trim();
+  const difficulty = (draft.difficulty === 'another' ? draft.customDifficulty : draft.difficulty).trim();
+  if (!series || !difficulty) {
+    throw new Error('Заполните серию и сложность теста.');
+  }
+  const questions = draft.questions
+    .map((question) => ({
+      text: question.text.trim(),
+      mediaUrl: question.mediaUrl?.trim() || '',
+      options: question.options
+        .map((option) => ({ text: option.text.trim(), isCorrect: Boolean(option.isCorrect) }))
+        .filter((option) => option.text)
+    }))
+    .filter((question) => question.text && question.options.length >= 2 && question.options.some((option) => option.isCorrect));
+  if (!questions.length || questions.length !== draft.questions.length) {
+    throw new Error('В каждом вопросе должен быть текст, минимум два варианта и один правильный ответ.');
+  }
+  return {
+    title: `${series}: ${difficulty}`,
+    category: series,
+    difficulty,
+    weight: Number(draft.weight || 1),
+    description: draft.hasDescription ? serializeSeriesDescription(draft.descriptionTitle, draft.descriptionBlocks) : '',
+    questions
+  };
+}
+
+function QuizEditorForm({ draft, setDraft, quizSeries, seriesDescriptionMap, onSubmit, submitLabel, onCancel, formId = 'quiz' }) {
+  function updateQuestion(index, patch) {
+    setDraft((current) => ({
+      ...current,
+      questions: current.questions.map((question, questionIndex) => questionIndex === index ? { ...question, ...patch } : question)
+    }));
+  }
+
+  function updateOption(questionIndex, optionIndex, patch) {
+    setDraft((current) => ({
+      ...current,
+      questions: current.questions.map((question, currentQuestionIndex) => {
+        if (currentQuestionIndex !== questionIndex) return question;
+        return {
+          ...question,
+          options: question.options.map((option, currentOptionIndex) => currentOptionIndex === optionIndex ? { ...option, ...patch } : option)
+        };
+      })
+    }));
+  }
+
+  function selectSeries(series) {
+    setDraft((current) => applySeriesDescription({ ...current, series }, seriesDescriptionMap.get(series) || ''));
+  }
+
+  return (
+    <form className="editor-form" onSubmit={onSubmit}>
+      <div className="field-grid">
+        <label>Сложность
+          <select value={draft.difficulty} onChange={(event) => setDraft({ ...draft, difficulty: event.target.value })}>
+            <option value="easy">easy</option>
+            <option value="middle">middle</option>
+            <option value="hard">hard</option>
+            <option value="another">другое</option>
+          </select>
+        </label>
+        <label>Вес<input type="number" min="1" value={draft.weight} onChange={(event) => setDraft({ ...draft, weight: event.target.value })} /></label>
+      </div>
+      {draft.difficulty === 'another' && (
+        <label>Своя сложность<input value={draft.customDifficulty} onChange={(event) => setDraft({ ...draft, customDifficulty: event.target.value })} required /></label>
+      )}
+      <div className="field-grid">
+        <label>Серия
+          <select value={draft.seriesMode} onChange={(event) => setDraft({ ...draft, seriesMode: event.target.value })}>
+            <option value="existing">Выбрать серию</option>
+            <option value="new">Создать серию</option>
+          </select>
+        </label>
+        {draft.seriesMode === 'existing' ? (
+          <label>Название серии
+            <select value={draft.series} onChange={(event) => selectSeries(event.target.value)}>
+              <option value="">Выберите серию</option>
+              {quizSeries.map((series) => <option key={series} value={series}>{series}</option>)}
+            </select>
+          </label>
+        ) : (
+          <label>Новая серия<input value={draft.newSeries} onChange={(event) => setDraft({ ...draft, newSeries: event.target.value })} required /></label>
+        )}
+      </div>
+      <label className="check-line"><input type="checkbox" checked={draft.hasDescription} onChange={(event) => setDraft({ ...draft, hasDescription: event.target.checked })} /> Добавить описание серии</label>
+      <p className="field-note">Описание хранится у серии один раз. Изменения применятся ко всем тестам этой серии.</p>
+      {draft.hasDescription && (
+        <div className="builder-stack">
+          <label>Название описания<input value={draft.descriptionTitle} placeholder="Например, История алкоголя" onChange={(event) => setDraft({ ...draft, descriptionTitle: event.target.value })} /></label>
+          {draft.descriptionBlocks.map((block, index) => (
+            <div className="builder-card" key={index}>
+              <strong>Блок описания {index + 1}</strong>
+              <label>Текст<textarea rows="4" value={block.text} onChange={(event) => setDraft((current) => ({ ...current, descriptionBlocks: current.descriptionBlocks.map((item, itemIndex) => itemIndex === index ? { ...item, text: event.target.value } : item) }))} /></label>
+              <MediaUploadField
+                label="Медиа блока"
+                value={block.mediaText}
+                multiple
+                onChange={(mediaText) => setDraft((current) => ({ ...current, descriptionBlocks: current.descriptionBlocks.map((item, itemIndex) => itemIndex === index ? { ...item, mediaText } : item) }))}
+              />
+            </div>
+          ))}
+          <button type="button" className="ghost compact-button" onClick={() => setDraft((current) => ({ ...current, descriptionBlocks: [...current.descriptionBlocks, defaultDescriptionBlock()] }))}><Plus size={16} />Добавить блок описания</button>
+        </div>
+      )}
+      <div className="builder-stack">
+        {draft.questions.map((question, questionIndex) => (
+          <details className="builder-card builder-details" key={questionIndex} open={questionIndex === 0}>
+            <summary className="builder-summary">
+              <span><strong>Вопрос {questionIndex + 1}</strong><small>{question.text || 'Без текста'}</small></span>
+              {draft.questions.length > 1 && <button type="button" className="ghost compact-button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); setDraft((current) => ({ ...current, questions: current.questions.filter((_, index) => index !== questionIndex) })); }}><Trash2 size={15} />Удалить</button>}
+            </summary>
+            <div className="builder-details-body">
+              <label>Текст вопроса<textarea rows="3" value={question.text} onChange={(event) => updateQuestion(questionIndex, { text: event.target.value })} /></label>
+              <MediaUploadField
+                label="Фото или медиа к вопросу"
+                value={question.mediaUrl}
+                multiple={false}
+                onChange={(mediaUrl) => updateQuestion(questionIndex, { mediaUrl })}
+              />
+              <div className="option-builder">
+                {question.options.map((option, optionIndex) => (
+                  <label className="option-line" key={optionIndex}>
+                    <input type="radio" name={`${formId}-correct-${questionIndex}`} checked={option.isCorrect} onChange={() => updateQuestion(questionIndex, { options: question.options.map((item, index) => ({ ...item, isCorrect: index === optionIndex })) })} />
+                    <input value={option.text} placeholder={`Вариант ${optionIndex + 1}`} onChange={(event) => updateOption(questionIndex, optionIndex, { text: event.target.value })} />
+                    {question.options.length > 2 && <button type="button" className="icon-button small" onClick={() => updateQuestion(questionIndex, { options: question.options.filter((_, index) => index !== optionIndex) })}>×</button>}
+                  </label>
+                ))}
+              </div>
+              <button type="button" className="ghost compact-button" onClick={() => updateQuestion(questionIndex, { options: [...question.options, { text: '', isCorrect: false }] })}><Plus size={16} />Добавить вариант</button>
+            </div>
+          </details>
+        ))}
+        <button type="button" className="ghost compact-button" onClick={() => setDraft((current) => ({ ...current, questions: [...current.questions, defaultQuizQuestion()] }))}><Plus size={16} />Добавить вопрос</button>
+      </div>
+      <div className="admin-card-actions">
+        <button className="primary">{submitLabel}</button>
+        {onCancel && <button type="button" className="ghost" onClick={onCancel}>Отмена</button>}
+      </div>
+    </form>
+  );
+}
+
 function AdminPage({ admin, reviewSubmission, reload, setPage, selectedSubmissionId, saveTask, deleteTask, saveQuiz, deleteQuiz, loadAdminQuiz }) {
   const [reward, setReward] = useState({});
   const [taskDraft, setTaskDraft] = useState({ title: '', description: '' });
   const [taskEditId, setTaskEditId] = useState(null);
-  const [quizDraft, setQuizDraft] = useState(defaultQuizDraft());
+  const [quizCreateDraft, setQuizCreateDraft] = useState(defaultQuizDraft());
+  const [quizEditDraft, setQuizEditDraft] = useState(defaultQuizDraft());
   const [quizEditId, setQuizEditId] = useState(null);
   const selectedId = Number(selectedSubmissionId || 0);
-  const quizSeries = useMemo(() => [...new Set(admin.quizzes.map((quiz) => quiz.category).filter(Boolean))].sort(), [admin.quizzes]);
+  const quizSeriesRows = useMemo(() => {
+    if (admin.series?.length) return admin.series;
+    return [...new Set(admin.quizzes.map((quiz) => quiz.category).filter(Boolean))]
+      .sort()
+      .map((name) => ({ name, description: admin.quizzes.find((quiz) => quiz.category === name)?.description || '' }));
+  }, [admin.series, admin.quizzes]);
+  const quizSeries = useMemo(() => quizSeriesRows.map((series) => series.name).filter(Boolean), [quizSeriesRows]);
+  const seriesDescriptionMap = useMemo(() => new Map(quizSeriesRows.map((series) => [series.name, series.description || ''])), [quizSeriesRows]);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -1161,10 +1345,10 @@ function AdminPage({ admin, reviewSubmission, reload, setPage, selectedSubmissio
   }, [selectedId, admin.submissions.length]);
 
   useEffect(() => {
-    if (quizDraft.seriesMode === 'existing' && !quizDraft.series && quizSeries.length) {
-      setQuizDraft((draft) => ({ ...draft, series: quizSeries[0] }));
+    if (quizCreateDraft.seriesMode === 'existing' && !quizCreateDraft.series && quizSeries.length) {
+      setQuizCreateDraft((draft) => applySeriesDescription({ ...draft, series: quizSeries[0] }, seriesDescriptionMap.get(quizSeries[0]) || ''));
     }
-  }, [quizSeries, quizDraft.seriesMode, quizDraft.series]);
+  }, [quizSeries, seriesDescriptionMap, quizCreateDraft.seriesMode, quizCreateDraft.series]);
 
   function editTask(task) {
     setTaskEditId(task.id);
@@ -1176,25 +1360,8 @@ function AdminPage({ admin, reviewSubmission, reload, setPage, selectedSubmissio
 
   async function editQuiz(quiz) {
     const full = await loadAdminQuiz(quiz.id);
-    const difficulty = ['easy', 'middle', 'hard'].includes(full.difficulty) ? full.difficulty : 'another';
-    const description = parseSeriesDescription(full.description);
     setQuizEditId(full.id);
-    setQuizDraft({
-      seriesMode: 'existing',
-      series: full.category,
-      newSeries: '',
-      difficulty,
-      customDifficulty: difficulty === 'another' ? full.difficulty : '',
-      weight: full.weight,
-      hasDescription: description.structured,
-      descriptionTitle: description.structured ? description.title : '',
-      descriptionBlocks: description.structured ? description.blocks : [defaultDescriptionBlock()],
-      questions: (full.questions.length ? full.questions : [defaultQuizQuestion()]).map((question) => ({
-        text: question.text,
-        mediaUrl: question.media_url || '',
-        options: question.options.map((option) => ({ text: option.text, isCorrect: option.isCorrect }))
-      }))
-    });
+    setQuizEditDraft(quizToDraft(full));
   }
 
   async function submitTaskForm(event) {
@@ -1206,51 +1373,23 @@ function AdminPage({ admin, reviewSubmission, reload, setPage, selectedSubmissio
 
   async function submitQuizForm(event) {
     event.preventDefault();
-    const series = (quizDraft.seriesMode === 'new' ? quizDraft.newSeries : quizDraft.series).trim();
-    const difficulty = (quizDraft.difficulty === 'another' ? quizDraft.customDifficulty : quizDraft.difficulty).trim();
-    if (!series || !difficulty) return alert('Заполните серию и сложность теста.');
-    const questions = quizDraft.questions
-      .map((question) => ({
-        text: question.text.trim(),
-        mediaUrl: question.mediaUrl?.trim() || '',
-        options: question.options
-          .map((option) => ({ text: option.text.trim(), isCorrect: Boolean(option.isCorrect) }))
-          .filter((option) => option.text)
-      }))
-      .filter((question) => question.text && question.options.length >= 2 && question.options.some((option) => option.isCorrect));
-    if (!questions.length || questions.length !== quizDraft.questions.length) {
-      return alert('В каждом вопросе должен быть текст, минимум два варианта и один правильный ответ.');
+    try {
+      await saveQuiz(null, buildQuizPayloadFromDraft(quizCreateDraft));
+      setQuizCreateDraft(defaultQuizDraft());
+    } catch (error) {
+      alert(error.message);
     }
-    await saveQuiz(quizEditId, {
-      title: `${series}: ${difficulty}`,
-      category: series,
-      difficulty,
-      weight: Number(quizDraft.weight || 1),
-      description: quizDraft.hasDescription ? serializeSeriesDescription(quizDraft.descriptionTitle, quizDraft.descriptionBlocks) : '',
-      questions
-    });
-    setQuizEditId(null);
-    setQuizDraft(defaultQuizDraft());
   }
 
-  function updateQuestion(index, patch) {
-    setQuizDraft((draft) => ({
-      ...draft,
-      questions: draft.questions.map((question, questionIndex) => questionIndex === index ? { ...question, ...patch } : question)
-    }));
-  }
-
-  function updateOption(questionIndex, optionIndex, patch) {
-    setQuizDraft((draft) => ({
-      ...draft,
-      questions: draft.questions.map((question, currentQuestionIndex) => {
-        if (currentQuestionIndex !== questionIndex) return question;
-        return {
-          ...question,
-          options: question.options.map((option, currentOptionIndex) => currentOptionIndex === optionIndex ? { ...option, ...patch } : option)
-        };
-      })
-    }));
+  async function submitQuizEditForm(event) {
+    event.preventDefault();
+    try {
+      await saveQuiz(quizEditId, buildQuizPayloadFromDraft(quizEditDraft));
+      setQuizEditId(null);
+      setQuizEditDraft(defaultQuizDraft());
+    } catch (error) {
+      alert(error.message);
+    }
   }
 
   return (
@@ -1327,93 +1466,17 @@ function AdminPage({ admin, reviewSubmission, reload, setPage, selectedSubmissio
       </details>
       <details className="admin-panel">
         <summary><span>Тесты</span><ChevronDown size={18} /></summary>
-        <details className="admin-subpanel" open={Boolean(quizEditId)}>
-          <summary><span>{quizEditId ? 'Редактировать тест' : 'Создать тест'}</span><Plus size={18} /></summary>
-          <form className="editor-form" onSubmit={submitQuizForm}>
-            <div className="field-grid">
-              <label>Сложность
-                <select value={quizDraft.difficulty} onChange={(event) => setQuizDraft({ ...quizDraft, difficulty: event.target.value })}>
-                  <option value="easy">easy</option>
-                  <option value="middle">middle</option>
-                  <option value="hard">hard</option>
-                  <option value="another">другое</option>
-                </select>
-              </label>
-              <label>Вес<input type="number" min="1" value={quizDraft.weight} onChange={(event) => setQuizDraft({ ...quizDraft, weight: event.target.value })} /></label>
-            </div>
-            {quizDraft.difficulty === 'another' && (
-              <label>Своя сложность<input value={quizDraft.customDifficulty} onChange={(event) => setQuizDraft({ ...quizDraft, customDifficulty: event.target.value })} required /></label>
-            )}
-            <div className="field-grid">
-              <label>Серия
-                <select value={quizDraft.seriesMode} onChange={(event) => setQuizDraft({ ...quizDraft, seriesMode: event.target.value })}>
-                  <option value="existing">Выбрать серию</option>
-                  <option value="new">Создать серию</option>
-                </select>
-              </label>
-              {quizDraft.seriesMode === 'existing' ? (
-                <label>Название серии
-                  <select value={quizDraft.series} onChange={(event) => setQuizDraft({ ...quizDraft, series: event.target.value })}>
-                    <option value="">Выберите серию</option>
-                    {quizSeries.map((series) => <option key={series} value={series}>{series}</option>)}
-                  </select>
-                </label>
-              ) : (
-                <label>Новая серия<input value={quizDraft.newSeries} onChange={(event) => setQuizDraft({ ...quizDraft, newSeries: event.target.value })} required /></label>
-              )}
-            </div>
-            <label className="check-line"><input type="checkbox" checked={quizDraft.hasDescription} onChange={(event) => setQuizDraft({ ...quizDraft, hasDescription: event.target.checked })} /> Добавить описание серии</label>
-            {quizDraft.hasDescription && (
-              <div className="builder-stack">
-                <label>Название описания<input value={quizDraft.descriptionTitle} placeholder="Например, История алкоголя" onChange={(event) => setQuizDraft({ ...quizDraft, descriptionTitle: event.target.value })} /></label>
-                {quizDraft.descriptionBlocks.map((block, index) => (
-                  <div className="builder-card" key={index}>
-                    <strong>Блок описания {index + 1}</strong>
-                    <label>Текст<textarea rows="4" value={block.text} onChange={(event) => setQuizDraft((draft) => ({ ...draft, descriptionBlocks: draft.descriptionBlocks.map((item, itemIndex) => itemIndex === index ? { ...item, text: event.target.value } : item) }))} /></label>
-                    <MediaUploadField
-                      label="Медиа блока"
-                      value={block.mediaText}
-                      multiple
-                      onChange={(mediaText) => setQuizDraft((draft) => ({ ...draft, descriptionBlocks: draft.descriptionBlocks.map((item, itemIndex) => itemIndex === index ? { ...item, mediaText } : item) }))}
-                    />
-                  </div>
-                ))}
-                <button type="button" className="ghost compact-button" onClick={() => setQuizDraft((draft) => ({ ...draft, descriptionBlocks: [...draft.descriptionBlocks, defaultDescriptionBlock()] }))}><Plus size={16} />Добавить блок описания</button>
-              </div>
-            )}
-            <div className="builder-stack">
-              {quizDraft.questions.map((question, questionIndex) => (
-                <div className="builder-card" key={questionIndex}>
-                  <div className="builder-card-head">
-                    <strong>Вопрос {questionIndex + 1}</strong>
-                    {quizDraft.questions.length > 1 && <button type="button" className="ghost compact-button" onClick={() => setQuizDraft((draft) => ({ ...draft, questions: draft.questions.filter((_, index) => index !== questionIndex) }))}><Trash2 size={15} />Удалить</button>}
-                  </div>
-                  <label>Текст вопроса<textarea rows="3" value={question.text} onChange={(event) => updateQuestion(questionIndex, { text: event.target.value })} /></label>
-                  <MediaUploadField
-                    label="Фото или медиа к вопросу"
-                    value={question.mediaUrl}
-                    multiple={false}
-                    onChange={(mediaUrl) => updateQuestion(questionIndex, { mediaUrl })}
-                  />
-                  <div className="option-builder">
-                    {question.options.map((option, optionIndex) => (
-                      <label className="option-line" key={optionIndex}>
-                        <input type="radio" name={`correct-${questionIndex}`} checked={option.isCorrect} onChange={() => updateQuestion(questionIndex, { options: question.options.map((item, index) => ({ ...item, isCorrect: index === optionIndex })) })} />
-                        <input value={option.text} placeholder={`Вариант ${optionIndex + 1}`} onChange={(event) => updateOption(questionIndex, optionIndex, { text: event.target.value })} />
-                        {question.options.length > 2 && <button type="button" className="icon-button small" onClick={() => updateQuestion(questionIndex, { options: question.options.filter((_, index) => index !== optionIndex) })}>×</button>}
-                      </label>
-                    ))}
-                  </div>
-                  <button type="button" className="ghost compact-button" onClick={() => updateQuestion(questionIndex, { options: [...question.options, { text: '', isCorrect: false }] })}><Plus size={16} />Добавить вариант</button>
-                </div>
-              ))}
-              <button type="button" className="ghost compact-button" onClick={() => setQuizDraft((draft) => ({ ...draft, questions: [...draft.questions, defaultQuizQuestion()] }))}><Plus size={16} />Добавить вопрос</button>
-            </div>
-            <div className="admin-card-actions">
-              <button className="primary">{quizEditId ? 'Сохранить тест' : 'Создать тест'}</button>
-              {quizEditId && <button type="button" className="ghost" onClick={() => { setQuizEditId(null); setQuizDraft(defaultQuizDraft()); }}>Отмена</button>}
-            </div>
-          </form>
+        <details className="admin-subpanel">
+          <summary><span>Создать тест</span><Plus size={18} /></summary>
+          <QuizEditorForm
+            draft={quizCreateDraft}
+            setDraft={setQuizCreateDraft}
+            quizSeries={quizSeries}
+            seriesDescriptionMap={seriesDescriptionMap}
+            onSubmit={submitQuizForm}
+            submitLabel="Создать тест"
+            formId="quiz-create"
+          />
         </details>
         <div className="admin-card-grid">
           {admin.quizzes.map((quiz) => (
@@ -1423,10 +1486,23 @@ function AdminPage({ admin, reviewSubmission, reload, setPage, selectedSubmissio
                 <strong>{quiz.title.replace(`${quiz.category}: `, '')}</strong>
               </div>
               <p>{quiz.difficulty} · {quiz.max_score} вопросов · вес {quiz.weight}</p>
-              <div className="admin-card-actions">
-                <button className="ghost compact-button" onClick={() => editQuiz(quiz)}><Edit3 size={16} />Изменить</button>
-                <button className="secondary compact-button" onClick={() => deleteQuiz(quiz.id)}><Trash2 size={16} />Удалить</button>
-              </div>
+              {quizEditId === quiz.id ? (
+                <QuizEditorForm
+                  draft={quizEditDraft}
+                  setDraft={setQuizEditDraft}
+                  quizSeries={quizSeries}
+                  seriesDescriptionMap={seriesDescriptionMap}
+                  onSubmit={submitQuizEditForm}
+                  submitLabel="Сохранить тест"
+                  onCancel={() => { setQuizEditId(null); setQuizEditDraft(defaultQuizDraft()); }}
+                  formId={`quiz-edit-${quiz.id}`}
+                />
+              ) : (
+                <div className="admin-card-actions">
+                  <button className="ghost compact-button" onClick={() => editQuiz(quiz)}><Edit3 size={16} />Изменить</button>
+                  <button className="secondary compact-button" onClick={() => deleteQuiz(quiz.id)}><Trash2 size={16} />Удалить</button>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -1583,13 +1659,6 @@ function getSeriesDescriptionInfo(category, items) {
       description: quizWithDescription.description
     };
   }
-  if (category.toLowerCase().includes('алкоголь')) {
-    return {
-      type: 'content',
-      title: 'История алкоголя',
-      slug: 'alcohol-history'
-    };
-  }
   return null;
 }
 
@@ -1721,6 +1790,7 @@ export function App() {
       submissions: submissions.submissions,
       tasks: taskRows.tasks,
       quizzes: quizRows.quizzes,
+      series: quizRows.series || [],
       sectionSlugs: ['self-employment', 'spaces', 'terms', 'formats', 'serving', 'service', 'final']
     });
   }

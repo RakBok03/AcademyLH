@@ -12,6 +12,7 @@
     "db:migrate": "node server/db/migrate.js",
     "db:seed": "node server/db/seed.js",
     "db:backfill:alcohol-description": "node scripts/backfill-alcohol-description.mjs",
+    "db:backfill:quiz-series": "node scripts/backfill-quiz-series.mjs",
     "db:backfill:spaces-blocks": "node scripts/backfill-spaces-blocks.mjs",
     "extract:puzzlebot": "node scripts/extract-puzzlebot-data.mjs",
     "import:legacy-users": "node scripts/import-legacy-users.mjs"
