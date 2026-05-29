@@ -10,8 +10,10 @@ WORKDIR /app
 ENV NODE_ENV=production
 COPY package*.json ./
 RUN npm ci --omit=dev
-COPY server ./server
-COPY scripts ./scripts
-COPY --from=build /app/server/public ./server/public
+COPY --chown=node:node server ./server
+COPY --chown=node:node scripts ./scripts
+COPY --from=build --chown=node:node /app/server/public ./server/public
+RUN mkdir -p uploads && chown -R node:node /app
+USER node
 EXPOSE 3000
 CMD ["node", "server/index.js"]
