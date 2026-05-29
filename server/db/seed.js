@@ -6,8 +6,22 @@ import { withTransaction } from './pool.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const seed = JSON.parse(await fs.readFile(path.join(__dirname, 'seed-data.json'), 'utf8'));
+const allQuizzes = [...(seed.quizzes || []), ...(seed.courseQuizzes || [])];
+
+function isStructuredSeriesDescription(description) {
+  if (!description) return false;
+  try {
+    const parsed = JSON.parse(description);
+    if (Array.isArray(parsed)) return parsed.length > 0;
+    return Boolean(parsed && typeof parsed === 'object' && Array.isArray(parsed.blocks) && (parsed.blocks.length || parsed.title));
+  } catch {
+    return false;
+  }
+}
 
 await withTransaction(async (client) => {
+  const sectionIds = new Map();
+
   for (const course of seed.courses) {
     const courseRow = await client.query(
       `INSERT INTO courses (slug, title, difficulty, description, order_index)
@@ -32,25 +46,109 @@ await withTransaction(async (client) => {
              order_index = EXCLUDED.order_index`,
         [courseId, section.slug, section.title, section.description, section.orderIndex]
       );
+      const sectionRow = await client.query('SELECT id FROM course_sections WHERE slug = $1', [section.slug]);
+      sectionIds.set(section.slug, sectionRow.rows[0].id);
     }
   }
 
-  for (const [quizIndex, quiz] of seed.quizzes.entries()) {
+  for (const lesson of seed.lessons || []) {
+    const sectionId = sectionIds.get(lesson.sectionSlug);
+    if (!sectionId) continue;
+    await client.query(
+      `INSERT INTO course_lessons (section_id, slug, title, body, media, legacy_command, order_index)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (slug) DO UPDATE
+       SET section_id = EXCLUDED.section_id,
+           title = EXCLUDED.title,
+           body = EXCLUDED.body,
+           media = EXCLUDED.media,
+           legacy_command = EXCLUDED.legacy_command,
+           order_index = EXCLUDED.order_index`,
+      [
+        sectionId,
+        lesson.slug,
+        lesson.title,
+        lesson.body || '',
+        JSON.stringify(lesson.media || []),
+        lesson.legacyCommand || null,
+        lesson.orderIndex
+      ]
+    );
+  }
+
+  for (const page of seed.contentPages || []) {
+    await client.query(
+      `INSERT INTO content_pages (slug, title, body, updated_at)
+       VALUES ($1, $2, $3, now())
+       ON CONFLICT (slug) DO UPDATE
+       SET title = EXCLUDED.title,
+           body = EXCLUDED.body,
+           updated_at = now()`,
+      [page.slug, page.title, JSON.stringify(page.body || [])]
+    );
+  }
+
+  for (const stale of seed.deactivateQuizSlugs || []) {
+    await client.query('DELETE FROM quizzes WHERE slug = $1', [stale]);
+  }
+
+  const seriesDescriptions = new Map();
+  for (const quiz of seed.quizzes || []) {
+    if (quiz.source !== 'tests' || !quiz.category || !isStructuredSeriesDescription(quiz.description)) continue;
+    if (!seriesDescriptions.has(quiz.category)) seriesDescriptions.set(quiz.category, quiz.description);
+  }
+  for (const quiz of seed.quizzes || []) {
+    if (quiz.source !== 'tests' || !quiz.category) continue;
+    await client.query(
+      `INSERT INTO quiz_series (name, description, updated_at)
+       VALUES ($1, $2, now())
+       ON CONFLICT (name) DO UPDATE
+       SET description = CASE
+             WHEN EXCLUDED.description <> '' THEN EXCLUDED.description
+             ELSE quiz_series.description
+           END,
+           updated_at = now()`,
+      [quiz.category, seriesDescriptions.get(quiz.category) || '']
+    );
+  }
+
+  for (const [quizIndex, quiz] of allQuizzes.entries()) {
+    let sectionId = null;
+    if (quiz.sectionSlug) {
+      sectionId = sectionIds.get(quiz.sectionSlug) || null;
+    }
     const quizRow = await client.query(
-      `INSERT INTO quizzes (slug, title, category, source, difficulty, weight, pass_score, max_score, description, order_index)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      `INSERT INTO quizzes (slug, title, category, source, difficulty, weight, reward_points, pass_score, max_score, description, section_id, course_required, order_index)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        ON CONFLICT (slug) DO UPDATE
        SET title = EXCLUDED.title,
            category = EXCLUDED.category,
            source = EXCLUDED.source,
            difficulty = EXCLUDED.difficulty,
            weight = EXCLUDED.weight,
+           reward_points = EXCLUDED.reward_points,
            pass_score = EXCLUDED.pass_score,
            max_score = EXCLUDED.max_score,
            description = EXCLUDED.description,
+           section_id = EXCLUDED.section_id,
+           course_required = EXCLUDED.course_required,
            order_index = EXCLUDED.order_index
        RETURNING id`,
-      [quiz.slug, quiz.title, quiz.category, quiz.source, quiz.difficulty, quiz.weight, quiz.passScore, quiz.maxScore, quiz.description, quizIndex + 1]
+      [
+        quiz.slug,
+        quiz.title,
+        quiz.category,
+        quiz.source,
+        quiz.difficulty,
+        quiz.weight,
+        quiz.rewardPoints || 0,
+        quiz.passScore,
+        quiz.maxScore,
+        quiz.source === 'tests' ? '' : quiz.description,
+        sectionId,
+        Boolean(quiz.courseRequired),
+        quizIndex + 1
+      ]
     );
     const quizId = quizRow.rows[0].id;
     await client.query('DELETE FROM quiz_questions WHERE quiz_id = $1', [quizId]);
@@ -87,4 +185,4 @@ await withTransaction(async (client) => {
   }
 });
 
-console.log(`Seed completed: ${seed.quizzes.length} quizzes, ${seed.tasks.length} tasks`);
+console.log(`Seed completed: ${allQuizzes.length} quizzes, ${seed.tasks.length} tasks`);

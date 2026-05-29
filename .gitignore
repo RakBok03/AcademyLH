@@ -5,3 +5,9 @@ uploads
 .DS_Store
 npm-debug.log*
 coverage
+backups
+logs
+.codex-backups
+*.bak
+*.bak-*
+academylh-deploy-latest.tar.gz

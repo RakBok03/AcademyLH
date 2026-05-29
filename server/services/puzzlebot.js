@@ -22,25 +22,41 @@ export async function callPuzzleBot(method, params = {}) {
   }
 }
 
-export async function sendReviewMessage(text) {
+export async function sendReviewMessage({ text, photoUrl, rewardUrl }) {
   const chatId = process.env.PUZZLEBOT_REVIEW_CHAT_ID;
   if (!chatId) return { skipped: true, reason: 'PUZZLEBOT_REVIEW_CHAT_ID is not configured' };
+  const replyMarkup = rewardUrl ? JSON.stringify({
+    inline_keyboard: [[{ text: 'Вознаградить', url: rewardUrl }]]
+  }) : undefined;
+
+  if (photoUrl) {
+    return callPuzzleBot('tg.sendPhoto', {
+      chat_id: chatId,
+      photo: photoUrl,
+      caption: text,
+      parse_mode: 'HTML',
+      reply_markup: replyMarkup
+    });
+  }
+
   return callPuzzleBot('tg.sendMessage', {
     chat_id: chatId,
     text,
     parse_mode: 'HTML',
-    disable_web_page_preview: 'false'
+    disable_web_page_preview: 'false',
+    reply_markup: replyMarkup
   });
 }
 
 export async function notifyReward(userTelegramId, points) {
   const command = process.env.PUZZLEBOT_REWARD_COMMAND;
-  if (!command || !userTelegramId) return { skipped: true };
-  await callPuzzleBot('variableChange', {
+  if (!userTelegramId) return { skipped: true };
+  const variableResult = await callPuzzleBot('variableChange', {
     variable: 'points_from_help_in_tasks',
     expression: points,
     user_id: userTelegramId
   });
+  if (!command) return variableResult;
   return callPuzzleBot('sendCommand', {
     command_name: command,
     tg_chat_id: userTelegramId

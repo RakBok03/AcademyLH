@@ -28,5 +28,4 @@ docker compose exec app node server/db/migrate.js
 docker compose exec app node server/db/seed.js
 ```
 
-The container exposes the app on `127.0.0.1:3001`. On the server, Nginx Proxy Manager routes `lofthallacademy.ru` to this port.
-
+The container exposes the app on `127.0.0.1:3001`. Put the public app URL in `APP_URL` on the server and route the domain to this port through the reverse proxy.
