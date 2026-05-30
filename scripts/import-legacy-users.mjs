@@ -8,7 +8,7 @@ const includeZeroFull = args.has('--full-zero');
 const limitArg = process.argv.find((arg) => arg.startsWith('--limit='));
 const limit = limitArg ? Number(limitArg.split('=')[1]) : null;
 
-const nocoBaseUrl = process.env.NOCODB_IMPORT_BASE_URL || process.env.NOCODB_BASE_URL || 'https://nocodb.puzzlebot.top';
+const nocoBaseUrl = process.env.NOCODB_IMPORT_BASE_URL || process.env.NOCODB_BASE_URL;
 const nocoToken = process.env.NOCODB_IMPORT_TOKEN || process.env.NOCODB_TOKEN;
 const nocoUsersTableId = process.env.NOCODB_USERS_TABLE_ID || 'm3ptjdlul8p3yx7';
 const puzzleToken = process.env.PUZZLEBOT_IMPORT_API_TOKEN || process.env.PUZZLEBOT_API_TOKEN;
@@ -107,6 +107,7 @@ function resolveTitle(score) {
 }
 
 async function fetchNocoRecords() {
+  if (!nocoBaseUrl) throw new Error('NOCODB_IMPORT_BASE_URL or NOCODB_BASE_URL is required');
   if (!nocoToken) throw new Error('NOCODB_IMPORT_TOKEN or NOCODB_TOKEN is required');
   const rows = [];
   let offset = 0;

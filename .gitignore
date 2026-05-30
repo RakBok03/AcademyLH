@@ -7,7 +7,7 @@ npm-debug.log*
 coverage
 backups
 logs
-.codex-backups
+.local-backups
 *.bak
 *.bak-*
 academylh-deploy-latest.tar.gz
