@@ -86,6 +86,39 @@ function formatDifficulty(value) {
   return difficultyLabels[value] || value || 'без уровня';
 }
 
+const difficultyOrder = {
+  easy: 1,
+  middle: 2,
+  medium: 2,
+  hard: 3
+};
+
+function difficultyRank(value) {
+  return difficultyOrder[String(value || '').toLowerCase()] || 99;
+}
+
+function sortQuizzesByDifficulty(quizzes = []) {
+  return [...quizzes].sort((a, b) => (
+    difficultyRank(a.difficulty) - difficultyRank(b.difficulty)
+    || Number(a.order_index || a.orderIndex || 0) - Number(b.order_index || b.orderIndex || 0)
+    || String(a.title || '').localeCompare(String(b.title || ''), 'ru')
+  ));
+}
+
+function formatPointsLabel(value) {
+  const number = Math.abs(Number(value) || 0);
+  const mod100 = number % 100;
+  const mod10 = number % 10;
+  if (mod100 >= 11 && mod100 <= 14) return 'баллов';
+  if (mod10 === 1) return 'балл';
+  if (mod10 >= 2 && mod10 <= 4) return 'балла';
+  return 'баллов';
+}
+
+function formatPoints(value) {
+  return `${value} ${formatPointsLabel(value)}`;
+}
+
 function attemptCategoryLabel(attempt) {
   return attempt.source === 'course' ? 'Стажерская тропа' : attempt.category;
 }
@@ -444,7 +477,7 @@ function normalizeCourseItemTitle(value) {
 }
 
 function splitQuizzesByLesson(section) {
-  const quizzes = section.quizzes || [];
+  const quizzes = sortQuizzesByDifficulty(section.quizzes || []);
   const usedQuizSlugs = new Set();
   const byLessonId = new Map();
 
@@ -467,9 +500,10 @@ function splitQuizzesByLesson(section) {
 
 function CourseQuizActions({ quizzes, openQuiz, inline = false }) {
   if (!quizzes?.length) return null;
+  const sortedQuizzes = sortQuizzesByDifficulty(quizzes);
   return (
     <div className={cx('course-actions', inline && 'inline-course-actions')}>
-      {quizzes.map((quiz) => (
+      {sortedQuizzes.map((quiz) => (
         <button className="secondary" key={quiz.slug} onClick={() => openQuiz(quiz.slug)}>
           {quiz.title} · {quiz.bestScore}/{quiz.maxScore}
         </button>
@@ -611,7 +645,7 @@ function HomePage({ data, setPage, adminMode, setAdminMode }) {
         </div>
         <div className="hero-score">
           <strong>{data.user.titleScore}</strong>
-          <span>очков</span>
+          <span>{formatPointsLabel(data.user.titleScore)}</span>
         </div>
       </section>
       <section className="quick-grid">
@@ -691,7 +725,7 @@ function ProfilePage({ me, setPage, openCourseSection, openAttempt }) {
       </PageHeader>
       <section className="stats-grid">
         <Stat label="Титул" value={me.user.titleText} icon={Award} />
-        <Stat label="Очки" value={me.user.titleScore} icon={Sparkles} />
+        <Stat label="Баллы" value={me.user.titleScore} icon={Sparkles} />
         <Stat label="Прогресс" value={`${completed}/${me.progress.length}`} icon={BarChart3} />
       </section>
       <section className="list-section">
@@ -1039,11 +1073,17 @@ function SpaceLessonCard({ lesson, quizzes, openQuiz }) {
 }
 
 function TestsPage({ quizzes, openQuiz, openContentPage, openSeriesDescription, setPage }) {
-  const grouped = useMemo(() => quizzes.reduce((acc, quiz) => {
-    acc[quiz.category] ||= [];
-    acc[quiz.category].push(quiz);
-    return acc;
-  }, {}), [quizzes]);
+  const grouped = useMemo(() => {
+    const next = quizzes.reduce((acc, quiz) => {
+      acc[quiz.category] ||= [];
+      acc[quiz.category].push(quiz);
+      return acc;
+    }, {});
+    Object.keys(next).forEach((category) => {
+      next[category] = sortQuizzesByDifficulty(next[category]);
+    });
+    return next;
+  }, [quizzes]);
 
   return (
     <main className="page">
@@ -1268,7 +1308,7 @@ function LeaderboardPage({ leaderboard, setPage }) {
         <Trophy size={30} />
         <div>
           <h2>Твое место: {leaderboard.myRank}</h2>
-          <p>{leaderboard.me.titleText} · {leaderboard.me.titleScore} очков</p>
+          <p>{leaderboard.me.titleText} · {formatPoints(leaderboard.me.titleScore)}</p>
         </div>
       </section>
       <TopList users={topRows} title="Топ-25" variant="leaderboard">

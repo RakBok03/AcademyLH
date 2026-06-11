@@ -19,6 +19,39 @@ const nonDemoUserSql = "(telegram_id IS NULL OR telegram_id <> 100001) AND COALE
 const isProduction = process.env.NODE_ENV === 'production';
 const dangerousUploadExtensions = new Set(['.html', '.htm', '.svg', '.js', '.mjs', '.css', '.json']);
 const dangerousUploadMimeTypes = new Set(['text/html', 'image/svg+xml', 'application/javascript', 'text/javascript', 'text/css']);
+const quizDifficultyOrder = {
+  easy: 1,
+  middle: 2,
+  medium: 2,
+  hard: 3
+};
+
+function quizDifficultyRank(value) {
+  return quizDifficultyOrder[String(value || '').toLowerCase()] || 99;
+}
+
+function resolveQuizOrderIndex(body = {}) {
+  const explicit = body.orderIndex ?? body.order_index;
+  if (explicit !== undefined && explicit !== null && explicit !== '') {
+    const parsed = Number(explicit);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return quizDifficultyRank(body.difficulty) * 10;
+}
+
+function formatPointsLabel(value) {
+  const number = Math.abs(Number(value) || 0);
+  const mod100 = number % 100;
+  const mod10 = number % 10;
+  if (mod100 >= 11 && mod100 <= 14) return 'баллов';
+  if (mod10 === 1) return 'балл';
+  if (mod10 >= 2 && mod10 <= 4) return 'балла';
+  return 'баллов';
+}
+
+function formatPoints(value) {
+  return `${value} ${formatPointsLabel(value)}`;
+}
 
 function getRequiredConfig(name) {
   const value = String(process.env[name] || '').trim();
@@ -550,7 +583,16 @@ api.get('/quizzes', requireAuth, async (req, res) => {
        GROUP BY quiz_id
      ) best ON best.quiz_id = q.id
      WHERE q.source = 'tests'
-     ORDER BY q.category, q.order_index`,
+     ORDER BY q.category,
+              CASE q.difficulty
+                WHEN 'easy' THEN 1
+                WHEN 'middle' THEN 2
+                WHEN 'medium' THEN 2
+                WHEN 'hard' THEN 3
+                ELSE 99
+              END,
+              q.order_index,
+              q.id`,
     [req.user.id]
   );
   res.json({ quizzes: quizzes.rows });
@@ -970,7 +1012,7 @@ api.post('/admin/submissions/:id/review', requireAuth, requireAdmin, async (req,
       [submission.id]
     );
     if (status === 'approved') {
-      const text = `Ваш ответ на задание «${task.rows[0]?.title || 'Академии'}» засчитан. Добавлено ${reward} баллов.`;
+      const text = `Ваш ответ на задание «${task.rows[0]?.title || 'Академии'}» засчитан. Добавлено ${formatPoints(reward)}.`;
       sendTelegramMessage(user.telegram_id, text).catch((error) => console.error('Telegram reward message failed', error));
       if (reward > 0) {
         notifyReward(user.telegram_id, reward).catch((error) => console.error('PuzzleBot reward notification failed', error));
@@ -1184,7 +1226,16 @@ api.get('/admin/quizzes', requireAuth, requireAdmin, async (_req, res) => {
      LEFT JOIN quiz_series qs ON qs.name = q.category
      LEFT JOIN course_sections cs ON cs.id = q.section_id
      WHERE q.source = 'tests'
-     ORDER BY q.category, q.order_index, q.id`
+     ORDER BY q.category,
+              CASE q.difficulty
+                WHEN 'easy' THEN 1
+                WHEN 'middle' THEN 2
+                WHEN 'medium' THEN 2
+                WHEN 'hard' THEN 3
+                ELSE 99
+              END,
+              q.order_index,
+              q.id`
   );
   const series = await query('SELECT * FROM quiz_series ORDER BY name');
   res.json({ quizzes: quizzes.rows, series: series.rows });
@@ -1228,7 +1279,7 @@ api.post('/admin/quizzes', requireAuth, requireAdmin, async (req, res, next) => 
           '',
           null,
           false,
-          Number(body.orderIndex || 100)
+          resolveQuizOrderIndex(body)
         ]
       );
       await replaceQuizQuestions(client, result.rows[0].id, body.questions);
@@ -1273,7 +1324,7 @@ api.put('/admin/quizzes/:id', requireAuth, requireAdmin, async (req, res, next) 
           '',
           null,
           false,
-          Number(body.orderIndex || 100),
+          resolveQuizOrderIndex(body),
           req.params.id
         ]
       );
