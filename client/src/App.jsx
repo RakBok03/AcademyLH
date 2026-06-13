@@ -1602,11 +1602,14 @@ function buildSeriesPayload(draft) {
 }
 
 function VisibilityToggle({ enabled, onChange, className = '', label = 'Показывается', hiddenLabel = 'Скрыто' }) {
+  const currentLabel = enabled ? label : hiddenLabel;
   return (
     <button
       type="button"
       className={cx('visibility-toggle', enabled ? 'is-visible' : 'is-hidden', className)}
       aria-pressed={enabled}
+      aria-label={currentLabel}
+      title={currentLabel}
       onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -1614,7 +1617,6 @@ function VisibilityToggle({ enabled, onChange, className = '', label = 'Пока
       }}
     >
       {enabled ? <Check size={15} /> : <X size={15} />}
-      {enabled ? label : hiddenLabel}
     </button>
   );
 }
