@@ -119,6 +119,26 @@ function formatPoints(value) {
   return `${value} ${formatPointsLabel(value)}`;
 }
 
+function formatTestLabel(value) {
+  const number = Math.abs(Number(value) || 0);
+  const mod100 = number % 100;
+  const mod10 = number % 10;
+  if (mod100 >= 11 && mod100 <= 14) return 'тестов';
+  if (mod10 === 1) return 'тест';
+  if (mod10 >= 2 && mod10 <= 4) return 'теста';
+  return 'тестов';
+}
+
+function formatTestCount(value) {
+  return `${value} ${formatTestLabel(value)}`;
+}
+
+function isQuizFullyPassed(quiz) {
+  const bestScore = Number(quiz?.best_score || quiz?.bestScore || 0);
+  const maxScore = Number(quiz?.max_score || quiz?.maxScore || 0);
+  return maxScore > 0 && bestScore >= maxScore;
+}
+
 function attemptCategoryLabel(attempt) {
   return attempt.source === 'course' ? 'Стажерская тропа' : attempt.category;
 }
@@ -1107,13 +1127,17 @@ function TestsPage({ quizzes, openQuiz, openContentPage, openSeriesDescription, 
               )}
             </div>
             <div className="test-grid">
-              {items.map((quiz) => (
-                <button className="test-card" key={quiz.slug} onClick={() => openQuiz(quiz.slug)}>
-                  <span>{formatDifficulty(quiz.difficulty)}</span>
-                  <strong>{quiz.title.replace(`${category}: `, '')}</strong>
-                  <small>{quiz.max_score} вопросов · вес {quiz.weight}</small>
-                </button>
-              ))}
+              {items.map((quiz) => {
+                const passed = isQuizFullyPassed(quiz);
+                return (
+                  <button className={cx('test-card', passed && 'test-card-passed')} key={quiz.slug} onClick={() => openQuiz(quiz.slug)}>
+                    {passed && <span className="test-passed-badge"><Check size={14} />Пройден</span>}
+                    <span>{formatDifficulty(quiz.difficulty)}</span>
+                    <strong>{quiz.title.replace(`${category}: `, '')}</strong>
+                    <small>{quiz.max_score} вопросов · вес {quiz.weight}</small>
+                  </button>
+                );
+              })}
             </div>
           </section>
         );
@@ -1502,6 +1526,7 @@ function quizToDraft(full) {
     difficulty,
     customDifficulty: difficulty === 'another' ? full.difficulty : '',
     weight: full.weight,
+    isVisible: full.is_visible !== false,
     hasDescription: description.structured,
     descriptionTitle: description.structured ? description.title : '',
     descriptionBlocks: description.structured ? description.blocks : [defaultDescriptionBlock()],
@@ -1539,6 +1564,7 @@ function buildQuizPayloadFromDraft(draft) {
     category: series,
     difficulty,
     weight: Number(draft.weight || 1),
+    isVisible: draft.isVisible !== false,
     description: draft.hasDescription ? serializeSeriesDescription(draft.descriptionTitle, draft.descriptionBlocks) : undefined,
     questions
   };
@@ -1547,6 +1573,7 @@ function buildQuizPayloadFromDraft(draft) {
 function defaultSeriesDraft() {
   return {
     name: '',
+    isVisible: true,
     hasDescription: false,
     descriptionTitle: '',
     descriptionBlocks: [defaultDescriptionBlock()]
@@ -1557,6 +1584,7 @@ function seriesDraftFromRow(row) {
   const description = parseSeriesDescription(row.description || '');
   return {
     name: row.name || '',
+    isVisible: row.is_visible !== false,
     hasDescription: description.structured,
     descriptionTitle: description.structured ? description.title : '',
     descriptionBlocks: description.structured ? description.blocks : [defaultDescriptionBlock()]
@@ -1568,14 +1596,34 @@ function buildSeriesPayload(draft) {
   if (!name) throw new Error('Введите название серии.');
   return {
     name,
+    isVisible: draft.isVisible !== false,
     description: draft.hasDescription ? serializeSeriesDescription(draft.descriptionTitle, draft.descriptionBlocks) : ''
   };
+}
+
+function VisibilityToggle({ enabled, onChange, className = '', label = 'Показывается', hiddenLabel = 'Скрыто' }) {
+  return (
+    <button
+      type="button"
+      className={cx('visibility-toggle', enabled ? 'is-visible' : 'is-hidden', className)}
+      aria-pressed={enabled}
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onChange(!enabled);
+      }}
+    >
+      {enabled ? <Check size={15} /> : <X size={15} />}
+      {enabled ? label : hiddenLabel}
+    </button>
+  );
 }
 
 function SeriesEditorForm({ draft, setDraft, onSubmit, submitLabel, onCancel }) {
   return (
     <form className="editor-form" onSubmit={onSubmit}>
       <label>Название серии<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} required /></label>
+      <VisibilityToggle enabled={draft.isVisible !== false} onChange={(isVisible) => setDraft({ ...draft, isVisible })} />
       <label className="check-line"><input type="checkbox" checked={draft.hasDescription} onChange={(event) => setDraft({ ...draft, hasDescription: event.target.checked })} /> Добавить описание серии</label>
       {draft.hasDescription && (
         <details className="builder-card builder-details description-editor-details" open>
@@ -1634,6 +1682,7 @@ function QuizEditorForm({ draft, setDraft, quizSeries, seriesDescriptionMap, onS
   return (
     <form className="editor-form" onSubmit={onSubmit}>
       <label>Название теста<input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} required /></label>
+      <VisibilityToggle enabled={draft.isVisible !== false} onChange={(isVisible) => setDraft({ ...draft, isVisible })} />
       <div className="field-grid">
         <label>Сложность
           <select value={draft.difficulty} onChange={(event) => setDraft({ ...draft, difficulty: event.target.value })}>
@@ -1734,7 +1783,7 @@ function QuizEditorForm({ draft, setDraft, quizSeries, seriesDescriptionMap, onS
   );
 }
 
-function AdminPage({ admin, reviewSubmission, reload, setPage, selectedSubmissionId, saveTask, deleteTask, saveQuiz, deleteQuiz, loadAdminQuiz, saveQuizSeries, deleteQuizSeries }) {
+function AdminPage({ admin, reviewSubmission, reload, setPage, selectedSubmissionId, saveTask, deleteTask, saveQuiz, deleteQuiz, loadAdminQuiz, saveQuizSeries, deleteQuizSeries, toggleQuizVisibility, toggleQuizSeriesVisibility }) {
   const [reward, setReward] = useState({});
   const [taskDraft, setTaskDraft] = useState({ title: '', description: '' });
   const [taskEditId, setTaskEditId] = useState(null);
@@ -1955,20 +2004,27 @@ function AdminPage({ admin, reviewSubmission, reload, setPage, selectedSubmissio
             const seriesQuizzes = quizzesBySeries[series.name] || [];
             const isSeriesOpen = Boolean(openSeries[series.name] || seriesEditName === series.name || quizCreateSeries === series.name || seriesQuizzes.some((quiz) => quiz.id === quizEditId));
             return (
-              <div className={cx('admin-manage-card quiz-series-card', isSeriesOpen && 'is-open')} key={series.name}>
-                <button
-                  type="button"
-                  className="quiz-series-summary"
-                  aria-expanded={isSeriesOpen}
-                  onClick={() => setOpenSeries((current) => ({ ...current, [series.name]: !isSeriesOpen }))}
-                >
-                  <span className="admin-card-heading">
-                    <span>Серия тестов</span>
-                    <strong>{series.name}</strong>
-                    {series.description && <small>Есть описание серии</small>}
-                  </span>
-                  <span className="quiz-series-summary-meta"><span>{seriesQuizzes.length} тестов</span><ChevronDown size={18} /></span>
-                </button>
+              <div className={cx('admin-manage-card quiz-series-card', isSeriesOpen && 'is-open', series.is_visible === false && 'is-hidden')} key={series.name}>
+                <div className="quiz-series-summary-row">
+                  <button
+                    type="button"
+                    className="quiz-series-summary"
+                    aria-expanded={isSeriesOpen}
+                    onClick={() => setOpenSeries((current) => ({ ...current, [series.name]: !isSeriesOpen }))}
+                  >
+                    <span className="admin-card-heading">
+                      <span>Серия тестов</span>
+                      <strong>{series.name}</strong>
+                      {series.description && <small>Есть описание серии</small>}
+                    </span>
+                    <span className="quiz-series-summary-meta"><span>{formatTestCount(seriesQuizzes.length)}</span><ChevronDown size={18} /></span>
+                  </button>
+                  <VisibilityToggle
+                    enabled={series.is_visible !== false}
+                    onChange={(isVisible) => toggleQuizSeriesVisibility(series.name, isVisible)}
+                    className="summary-visibility-toggle"
+                  />
+                </div>
                 {isSeriesOpen && (
                   <div className="quiz-series-body">
                 {seriesEditName === series.name ? (
@@ -1990,10 +2046,17 @@ function AdminPage({ admin, reviewSubmission, reload, setPage, selectedSubmissio
                 <div className="series-test-list">
                   {seriesQuizzes.length === 0 && <p className="muted">В серии пока нет тестов.</p>}
                   {seriesQuizzes.map((quiz) => (
-                    <div className="series-test-row" key={quiz.id}>
+                    <div className={cx('series-test-row', quiz.is_visible === false && 'is-hidden')} key={quiz.id}>
+                      <div className="series-test-row-head">
                       <div>
                         <strong>{quiz.title.replace(`${series.name}: `, '')}</strong>
                         <span>{formatDifficulty(quiz.difficulty)} · {quiz.max_score} вопросов · вес {quiz.weight}</span>
+                      </div>
+                      <VisibilityToggle
+                        enabled={quiz.is_visible !== false}
+                        onChange={(isVisible) => toggleQuizVisibility(quiz.id, isVisible)}
+                        className="row-visibility-toggle"
+                      />
                       </div>
                       {quizEditId === quiz.id ? (
                         <QuizEditorForm
@@ -2270,6 +2333,7 @@ function defaultQuizDraft() {
     difficulty: 'easy',
     customDifficulty: '',
     weight: 1,
+    isVisible: true,
     hasDescription: false,
     descriptionTitle: '',
     descriptionBlocks: [defaultDescriptionBlock()],
@@ -2457,10 +2521,28 @@ export function App() {
     await loadAll();
   }
 
+  async function toggleQuizVisibility(id, isVisible) {
+    await apiFetch(`/admin/quizzes/${id}/visibility`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isVisible })
+    });
+    await loadAdmin();
+    await loadAll();
+  }
+
   async function saveQuizSeries(name, payload) {
     await apiFetch(name ? `/admin/quiz-series/${encodeURIComponent(name)}` : '/admin/quiz-series', {
       method: name ? 'PUT' : 'POST',
       body: JSON.stringify(payload)
+    });
+    await loadAdmin();
+    await loadAll();
+  }
+
+  async function toggleQuizSeriesVisibility(name, isVisible) {
+    await apiFetch(`/admin/quiz-series/${encodeURIComponent(name)}/visibility`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isVisible })
     });
     await loadAdmin();
     await loadAll();
@@ -2497,7 +2579,7 @@ export function App() {
       {page === 'tests' && <TestsPage quizzes={quizzes} openQuiz={openQuiz} openContentPage={openContentPage} openSeriesDescription={openSeriesDescription} setPage={setPage} />}
       {page === 'leaderboard' && <LeaderboardPage leaderboard={leaderboard} setPage={setPage} />}
       {page === 'tasks' && <TasksPage tasks={tasks} submitTask={submitTask} loadMenu={loadMenu} loadMenuFilters={() => apiFetch('/tasks/dish-photo/menu-filters')} setPage={setPage} />}
-      {page === 'admin' && home.user.role === 'admin' && admin && <AdminPage admin={admin} reviewSubmission={reviewSubmission} reload={loadAdmin} setPage={setPage} selectedSubmissionId={selectedSubmissionId} saveTask={saveTask} deleteTask={deleteTask} saveQuiz={saveQuiz} deleteQuiz={deleteQuiz} loadAdminQuiz={loadAdminQuiz} saveQuizSeries={saveQuizSeries} deleteQuizSeries={deleteQuizSeries} />}
+      {page === 'admin' && home.user.role === 'admin' && admin && <AdminPage admin={admin} reviewSubmission={reviewSubmission} reload={loadAdmin} setPage={setPage} selectedSubmissionId={selectedSubmissionId} saveTask={saveTask} deleteTask={deleteTask} saveQuiz={saveQuiz} deleteQuiz={deleteQuiz} loadAdminQuiz={loadAdminQuiz} saveQuizSeries={saveQuizSeries} deleteQuizSeries={deleteQuizSeries} toggleQuizVisibility={toggleQuizVisibility} toggleQuizSeriesVisibility={toggleQuizSeriesVisibility} />}
       {page === 'admin' && home.user.role !== 'admin' && (
         <main className="page">
           <PageHeader eyebrow="Доступ" title="Админка закрыта"><BackHomeButton setPage={setPage} /></PageHeader>

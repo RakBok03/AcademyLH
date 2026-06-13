@@ -39,6 +39,16 @@ function resolveQuizOrderIndex(body = {}) {
   return quizDifficultyRank(body.difficulty) * 10;
 }
 
+function readVisibility(body = {}, fallback = true) {
+  const value = body.isVisible ?? body.is_visible;
+  if (value === undefined || value === null || value === '') return fallback;
+  return !(value === false || value === 'false' || value === 0 || value === '0');
+}
+
+function hasVisibility(body = {}) {
+  return body.isVisible !== undefined || body.is_visible !== undefined;
+}
+
 function formatPointsLabel(value) {
   const number = Math.abs(Number(value) || 0);
   const mod100 = number % 100;
@@ -583,6 +593,8 @@ api.get('/quizzes', requireAuth, async (req, res) => {
        GROUP BY quiz_id
      ) best ON best.quiz_id = q.id
      WHERE q.source = 'tests'
+       AND q.is_visible = true
+       AND COALESCE(qs.is_visible, true) = true
      ORDER BY q.category,
               CASE q.difficulty
                 WHEN 'easy' THEN 1
@@ -599,8 +611,21 @@ api.get('/quizzes', requireAuth, async (req, res) => {
 });
 
 api.get('/quizzes/:slug', requireAuth, async (req, res) => {
-  const quiz = await query('SELECT * FROM quizzes WHERE slug = $1', [req.params.slug]);
+  const quiz = await query(
+    `SELECT q.*, COALESCE(qs.is_visible, true) AS series_is_visible
+     FROM quizzes q
+     LEFT JOIN quiz_series qs ON qs.name = q.category
+     WHERE q.slug = $1`,
+    [req.params.slug]
+  );
   if (!quiz.rows[0]) return res.status(404).json({ error: 'Quiz not found' });
+  if (
+    quiz.rows[0].source === 'tests'
+    && req.user.role !== 'admin'
+    && (!quiz.rows[0].is_visible || !quiz.rows[0].series_is_visible)
+  ) {
+    return res.status(404).json({ error: 'Quiz not found' });
+  }
   if (quiz.rows[0].source === 'course') {
     const allowed = await canAccessSection(req.user, quiz.rows[0].section_id);
     if (!allowed) return res.status(403).json({ error: 'Сначала завершите предыдущий этап курса.' });
@@ -620,9 +645,22 @@ api.get('/quizzes/:slug', requireAuth, async (req, res) => {
 
 api.post('/quizzes/:slug/attempt', requireAuth, async (req, res, next) => {
   try {
-    const quizResult = await query('SELECT * FROM quizzes WHERE slug = $1', [req.params.slug]);
+    const quizResult = await query(
+      `SELECT q.*, COALESCE(qs.is_visible, true) AS series_is_visible
+       FROM quizzes q
+       LEFT JOIN quiz_series qs ON qs.name = q.category
+       WHERE q.slug = $1`,
+      [req.params.slug]
+    );
     const quiz = quizResult.rows[0];
     if (!quiz) return res.status(404).json({ error: 'Quiz not found' });
+    if (
+      quiz.source === 'tests'
+      && req.user.role !== 'admin'
+      && (!quiz.is_visible || !quiz.series_is_visible)
+    ) {
+      return res.status(404).json({ error: 'Quiz not found' });
+    }
     if (quiz.source === 'course') {
       const allowed = await canAccessSection(req.user, quiz.section_id);
       if (!allowed) return res.status(403).json({ error: 'Сначала завершите предыдущий этап курса.' });
@@ -1117,25 +1155,28 @@ async function replaceQuizQuestions(client, quizId, questions) {
   }
 }
 
-async function upsertQuizSeries(client, name, description) {
+async function upsertQuizSeries(client, name, description, isVisible) {
   if (!name) return;
   const hasDescription = typeof description === 'string';
+  const shouldUpdateVisibility = isVisible !== undefined && isVisible !== null;
   await client.query(
-    `INSERT INTO quiz_series (name, description, updated_at)
-     VALUES ($1, $2, now())
+    `INSERT INTO quiz_series (name, description, is_visible, updated_at)
+     VALUES ($1, $2, $4, now())
      ON CONFLICT (name) DO UPDATE
      SET description = CASE WHEN $3 THEN EXCLUDED.description ELSE quiz_series.description END,
+         is_visible = CASE WHEN $5 THEN EXCLUDED.is_visible ELSE quiz_series.is_visible END,
          updated_at = now()`,
-    [name, hasDescription ? description : '', hasDescription]
+    [name, hasDescription ? description : '', hasDescription, readVisibility({ isVisible }, true), shouldUpdateVisibility]
   );
 }
 
 async function readQuizWithQuestions(quizId) {
   const quiz = await query(
     `SELECT q.id, q.slug, q.title, q.category, q.source, q.difficulty, q.weight,
-            q.reward_points, q.pass_score, q.max_score, q.section_id, q.course_required, q.order_index,
+            q.reward_points, q.pass_score, q.max_score, q.section_id, q.course_required, q.is_visible, q.order_index,
             COALESCE(NULLIF(qs.description, ''), q.description, '') AS description,
             COALESCE(qs.description, '') AS series_description,
+            COALESCE(qs.is_visible, true) AS series_is_visible,
             cs.slug AS section_slug
      FROM quizzes q
      LEFT JOIN quiz_series qs ON qs.name = q.category
@@ -1162,13 +1203,14 @@ api.post('/admin/quiz-series', requireAuth, requireAdmin, async (req, res, next)
     const name = String(req.body?.name || '').trim();
     if (!name) return res.status(400).json({ error: 'Series name is required' });
     const result = await query(
-      `INSERT INTO quiz_series (name, description, updated_at)
-       VALUES ($1, $2, now())
+      `INSERT INTO quiz_series (name, description, is_visible, updated_at)
+       VALUES ($1, $2, $3, now())
        ON CONFLICT (name) DO UPDATE
        SET description = EXCLUDED.description,
+           is_visible = EXCLUDED.is_visible,
            updated_at = now()
        RETURNING *`,
-      [name, req.body?.description || '']
+      [name, req.body?.description || '', readVisibility(req.body, true)]
     );
     res.status(201).json({ series: result.rows[0] });
   } catch (error) {
@@ -1184,10 +1226,10 @@ api.put('/admin/quiz-series/:name', requireAuth, requireAdmin, async (req, res, 
     const result = await withTransaction(async (client) => {
       const updated = await client.query(
         `UPDATE quiz_series
-         SET name = $1, description = $2, updated_at = now()
-         WHERE name = $3
+         SET name = $1, description = $2, is_visible = $3, updated_at = now()
+         WHERE name = $4
          RETURNING *`,
-        [nextName, req.body?.description || '', oldName]
+        [nextName, req.body?.description || '', readVisibility(req.body, true), oldName]
       );
       if (!updated.rows[0]) return null;
       if (nextName !== oldName) {
@@ -1197,6 +1239,22 @@ api.put('/admin/quiz-series/:name', requireAuth, requireAdmin, async (req, res, 
     });
     if (!result) return res.status(404).json({ error: 'Series not found' });
     res.json({ series: result });
+  } catch (error) {
+    next(error);
+  }
+});
+
+api.patch('/admin/quiz-series/:name/visibility', requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const result = await query(
+      `UPDATE quiz_series
+       SET is_visible = $1, updated_at = now()
+       WHERE name = $2
+       RETURNING *`,
+      [readVisibility(req.body, true), req.params.name]
+    );
+    if (!result.rows[0]) return res.status(404).json({ error: 'Series not found' });
+    res.json({ series: result.rows[0] });
   } catch (error) {
     next(error);
   }
@@ -1218,9 +1276,10 @@ api.delete('/admin/quiz-series/:name', requireAuth, requireAdmin, async (req, re
 api.get('/admin/quizzes', requireAuth, requireAdmin, async (_req, res) => {
   const quizzes = await query(
     `SELECT q.id, q.slug, q.title, q.category, q.source, q.difficulty, q.weight,
-            q.reward_points, q.pass_score, q.max_score, q.section_id, q.course_required, q.order_index,
+            q.reward_points, q.pass_score, q.max_score, q.section_id, q.course_required, q.is_visible, q.order_index,
             COALESCE(NULLIF(qs.description, ''), q.description, '') AS description,
             COALESCE(qs.description, '') AS series_description,
+            COALESCE(qs.is_visible, true) AS series_is_visible,
             cs.slug AS section_slug
      FROM quizzes q
      LEFT JOIN quiz_series qs ON qs.name = q.category
@@ -1260,11 +1319,11 @@ api.post('/admin/quizzes', requireAuth, requireAdmin, async (req, res, next) => 
       return res.status(400).json({ error: 'Quiz series, title and questions are required' });
     }
     const quiz = await withTransaction(async (client) => {
-      await upsertQuizSeries(client, body.category, body.description || '');
+      await upsertQuizSeries(client, body.category, body.description);
       const slug = body.slug || await createUniqueSlug(client, 'quizzes', `${body.category}-${body.difficulty || 'easy'}-${body.title}`);
       const result = await client.query(
-        `INSERT INTO quizzes (slug, title, category, source, difficulty, weight, reward_points, pass_score, max_score, description, section_id, course_required, order_index)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        `INSERT INTO quizzes (slug, title, category, source, difficulty, weight, reward_points, pass_score, max_score, description, section_id, course_required, is_visible, order_index)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
          RETURNING *`,
         [
           slug,
@@ -1279,6 +1338,7 @@ api.post('/admin/quizzes', requireAuth, requireAdmin, async (req, res, next) => 
           '',
           null,
           false,
+          readVisibility(body, true),
           resolveQuizOrderIndex(body)
         ]
       );
@@ -1295,7 +1355,7 @@ api.put('/admin/quizzes/:id', requireAuth, requireAdmin, async (req, res, next) 
   try {
     const body = req.body || {};
     const quiz = await withTransaction(async (client) => {
-      if (body.category) await upsertQuizSeries(client, body.category, body.description || '');
+      if (body.category) await upsertQuizSeries(client, body.category, body.description);
       const result = await client.query(
         `UPDATE quizzes
          SET title = $1,
@@ -1309,8 +1369,9 @@ api.put('/admin/quizzes/:id', requireAuth, requireAdmin, async (req, res, next) 
              description = $9,
              section_id = $10,
              course_required = $11,
-             order_index = $12
-         WHERE id = $13 AND source = 'tests'
+             is_visible = CASE WHEN $12 THEN $13 ELSE is_visible END,
+             order_index = $14
+         WHERE id = $15 AND source = 'tests'
          RETURNING *`,
         [
           body.title,
@@ -1324,6 +1385,8 @@ api.put('/admin/quizzes/:id', requireAuth, requireAdmin, async (req, res, next) 
           '',
           null,
           false,
+          hasVisibility(body),
+          readVisibility(body, true),
           resolveQuizOrderIndex(body),
           req.params.id
         ]
@@ -1334,6 +1397,22 @@ api.put('/admin/quizzes/:id', requireAuth, requireAdmin, async (req, res, next) 
     });
     if (!quiz) return res.status(404).json({ error: 'Quiz not found' });
     res.json({ quiz: await readQuizWithQuestions(quiz.id) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+api.patch('/admin/quizzes/:id/visibility', requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const result = await query(
+      `UPDATE quizzes
+       SET is_visible = $1
+       WHERE id = $2 AND source = 'tests'
+       RETURNING *`,
+      [readVisibility(req.body, true), req.params.id]
+    );
+    if (!result.rows[0]) return res.status(404).json({ error: 'Quiz not found' });
+    res.json({ quiz: result.rows[0] });
   } catch (error) {
     next(error);
   }
