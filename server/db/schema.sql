@@ -54,12 +54,21 @@ CREATE TABLE IF NOT EXISTS user_progress (
   UNIQUE(user_id, section_id)
 );
 
+CREATE TABLE IF NOT EXISTS user_course_progress (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  course_id INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+  completed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(user_id, course_id)
+);
+
 CREATE TABLE IF NOT EXISTS quizzes (
   id SERIAL PRIMARY KEY,
   slug TEXT NOT NULL UNIQUE,
   title TEXT NOT NULL,
   category TEXT NOT NULL,
   source TEXT NOT NULL DEFAULT 'tests',
+  quiz_type TEXT NOT NULL DEFAULT 'testing',
   difficulty TEXT NOT NULL DEFAULT 'easy',
   weight INTEGER NOT NULL DEFAULT 1,
   reward_points INTEGER NOT NULL DEFAULT 0,
@@ -81,13 +90,24 @@ CREATE TABLE IF NOT EXISTS quiz_series (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS course_section_requirements (
+  id SERIAL PRIMARY KEY,
+  section_id INTEGER NOT NULL REFERENCES course_sections(id) ON DELETE CASCADE,
+  requirement_type TEXT NOT NULL DEFAULT 'quiz',
+  quiz_id INTEGER REFERENCES quizzes(id) ON DELETE CASCADE,
+  series_id INTEGER REFERENCES quiz_series(id) ON DELETE CASCADE,
+  order_index INTEGER NOT NULL DEFAULT 0
+);
+
 CREATE TABLE IF NOT EXISTS quiz_questions (
   id SERIAL PRIMARY KEY,
   quiz_id INTEGER NOT NULL REFERENCES quizzes(id) ON DELETE CASCADE,
   order_index INTEGER NOT NULL DEFAULT 0,
   text TEXT NOT NULL,
   media_url TEXT,
-  hint TEXT NOT NULL DEFAULT ''
+  hint TEXT NOT NULL DEFAULT '',
+  answer_type TEXT NOT NULL DEFAULT 'single',
+  show_hint BOOLEAN NOT NULL DEFAULT true
 );
 
 CREATE TABLE IF NOT EXISTS quiz_options (
@@ -171,12 +191,22 @@ CREATE INDEX IF NOT EXISTS idx_users_score ON users(title_score DESC);
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS course_completed_at TIMESTAMPTZ;
 ALTER TABLE courses ADD COLUMN IF NOT EXISTS is_visible BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS quiz_type TEXT NOT NULL DEFAULT 'testing';
 ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS reward_points INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS section_id INTEGER REFERENCES course_sections(id) ON DELETE SET NULL;
 ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS course_required BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS is_visible BOOLEAN NOT NULL DEFAULT true;
 ALTER TABLE quiz_series ADD COLUMN IF NOT EXISTS is_visible BOOLEAN NOT NULL DEFAULT true;
 ALTER TABLE quiz_questions ADD COLUMN IF NOT EXISTS hint TEXT NOT NULL DEFAULT '';
+ALTER TABLE quiz_questions ADD COLUMN IF NOT EXISTS answer_type TEXT NOT NULL DEFAULT 'single';
+ALTER TABLE quiz_questions ADD COLUMN IF NOT EXISTS show_hint BOOLEAN NOT NULL DEFAULT true;
+
+INSERT INTO user_course_progress (user_id, course_id, completed_at)
+SELECT u.id, c.id, u.course_completed_at
+FROM users u
+JOIN courses c ON c.slug = 'stazher-trail'
+WHERE u.course_completed_at IS NOT NULL
+ON CONFLICT (user_id, course_id) DO NOTHING;
 
 DELETE FROM users
 WHERE telegram_id = 100001

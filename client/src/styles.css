@@ -402,6 +402,12 @@ button:disabled {
   color: #fffaf0;
 }
 
+.secondary.is-complete {
+  background: rgba(0, 109, 119, 0.14);
+  color: var(--teal);
+  border: 1px solid rgba(0, 109, 119, 0.22);
+}
+
 .ghost {
   width: fit-content;
   border: 1px solid var(--line);
@@ -1092,6 +1098,11 @@ textarea {
   resize: vertical;
 }
 
+.survey-text-answer {
+  min-height: 128px;
+  line-height: 1.5;
+}
+
 .field-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1566,6 +1577,18 @@ textarea {
   min-height: auto;
 }
 
+.option-line input[type="checkbox"] {
+  width: auto;
+  min-height: auto;
+}
+
+.requirement-row {
+  display: grid;
+  grid-template-columns: minmax(92px, 0.32fr) minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
 .media-upload-field {
   display: grid;
   gap: 8px;
@@ -1716,6 +1739,59 @@ textarea {
   color: var(--coral);
 }
 
+.browser-gate {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 28px 18px;
+}
+
+.browser-gate-card {
+  width: min(548px, 100%);
+  display: grid;
+  justify-items: center;
+  gap: 18px;
+  padding: 36px 30px 30px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 252, 244, 0.94);
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.browser-gate-icon {
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: rgba(0, 109, 119, 0.12);
+  color: var(--teal);
+}
+
+.browser-gate h1 {
+  max-width: 440px;
+  margin: 0;
+  font-size: clamp(32px, 7vw, 48px);
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.browser-gate p {
+  max-width: 430px;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.browser-gate-button {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
 @media (max-width: 760px) {
   .page {
     padding: 20px 12px 0;
@@ -1829,6 +1905,47 @@ textarea {
   display: flex;
   justify-content: flex-end;
   margin-top: 16px;
+}
+
+.course-requirements {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.course-requirements > strong {
+  font-size: 15px;
+}
+
+.requirement-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper-solid);
+}
+
+.requirement-card > div:first-child {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.requirement-card b {
+  overflow-wrap: anywhere;
+}
+
+.requirement-card span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.requirement-card .course-actions {
+  margin-top: 0;
 }
 
 .options button.correct,
@@ -2050,4 +2167,20 @@ textarea {
 
 .summary-visibility-toggle {
   margin: 0;
+}
+
+@media (max-width: 560px) {
+  .browser-gate-card {
+    padding: 28px 18px 22px;
+  }
+
+  .requirement-row,
+  .requirement-card {
+    grid-template-columns: 1fr;
+  }
+
+  .requirement-row .icon-button,
+  .requirement-card > .secondary {
+    justify-self: start;
+  }
 }

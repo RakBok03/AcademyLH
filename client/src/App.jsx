@@ -134,13 +134,16 @@ function formatTestCount(value) {
 }
 
 function isQuizFullyPassed(quiz) {
+  if (quiz?.quiz_type === 'survey' || quiz?.quizType === 'survey') {
+    return Number(quiz?.attempts_count || quiz?.attemptsCount || 0) > 0 || Boolean(quiz?.passed);
+  }
   const bestScore = Number(quiz?.best_score || quiz?.bestScore || 0);
   const maxScore = Number(quiz?.max_score || quiz?.maxScore || 0);
   return maxScore > 0 && bestScore >= maxScore;
 }
 
 function attemptCategoryLabel(attempt) {
-  return attempt.source === 'course' ? 'Стажерская тропа' : attempt.category;
+  return attempt.category || (attempt.source === 'course' ? 'Курс' : 'Тесты');
 }
 
 function cx(...values) {
@@ -523,11 +526,14 @@ function CourseQuizActions({ quizzes, openQuiz, inline = false }) {
   const sortedQuizzes = sortQuizzesByDifficulty(quizzes);
   return (
     <div className={cx('course-actions', inline && 'inline-course-actions')}>
-      {sortedQuizzes.map((quiz) => (
-        <button className="secondary" key={quiz.slug} onClick={() => openQuiz(quiz.slug)}>
-          {quiz.title} · {quiz.bestScore}/{quiz.maxScore}
-        </button>
-      ))}
+      {sortedQuizzes.map((quiz) => {
+        const isSurvey = quiz.quiz_type === 'survey' || quiz.quizType === 'survey';
+        return (
+          <button className={cx('secondary', quiz.passed && 'is-complete')} key={quiz.slug} onClick={() => openQuiz(quiz.slug)}>
+            {quiz.title} · {isSurvey ? 'опрос' : `${quiz.bestScore}/${quiz.maxScore}`}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -817,10 +823,15 @@ function CoursesPage({
   adminMode,
   saveCourse,
   deleteCourse,
-  toggleCourseVisibility
+  toggleCourseVisibility,
+  availableQuizzes = [],
+  quizSeriesRows = []
 }) {
   const activeSection = selectedCourse?.sections.find((section) => section.slug === activeSectionSlug);
   const [courseEditorMode, setCourseEditorMode] = useState(null);
+  const visibleCourses = selectedCourse
+    ? courses.filter((course) => course.slug === selectedCourse.course.slug)
+    : courses;
 
   useEffect(() => {
     if (!adminMode) setCourseEditorMode(null);
@@ -853,8 +864,16 @@ function CoursesPage({
           )}
         </section>
       )}
+      {selectedCourse && (
+        <section className="course-admin-actions">
+          <button type="button" className="ghost compact-button" onClick={() => openCourse(selectedCourse.course.slug)}>
+            <ChevronDown size={17} />
+            Все курсы
+          </button>
+        </section>
+      )}
       <section className="course-list">
-        {courses.map((course) => (
+        {visibleCourses.map((course) => (
           <div className={cx('course-card', selectedCourse?.course.slug === course.slug && 'selected', course.is_visible === false && 'is-hidden')} key={course.slug}>
             <button type="button" className="course-card-main" onClick={() => openCourse(course.slug)}>
               <div>
@@ -895,6 +914,8 @@ function CoursesPage({
             await saveCourse(id, payload);
             setCourseEditorMode(null);
           }}
+          availableQuizzes={availableQuizzes}
+          quizSeriesRows={quizSeriesRows}
           onClose={() => setCourseEditorMode(null)}
         />
       )}
@@ -925,7 +946,7 @@ function CoursesPage({
   );
 }
 
-function CourseAdminTools({ selectedCourse, saveCourse, onClose }) {
+function CourseAdminTools({ selectedCourse, saveCourse, availableQuizzes = [], quizSeriesRows = [], onClose }) {
   const [draft, setDraft] = useState(defaultCourseDraft());
   const [editingId, setEditingId] = useState(null);
 
@@ -962,6 +983,32 @@ function CourseAdminTools({ selectedCourse, saveCourse, onClose }) {
   function updateLessonBlock(sectionIndex, lessonIndex, blockIndex, patch) {
     updateLesson(sectionIndex, lessonIndex, {
       blocks: draft.sections[sectionIndex].lessons[lessonIndex].blocks.map((block, index) => index === blockIndex ? { ...block, ...patch } : block)
+    });
+  }
+
+  function updateRequirement(sectionIndex, requirementIndex, patch) {
+    updateSection(sectionIndex, {
+      requirements: draft.sections[sectionIndex].requirements.map((requirement, index) => index === requirementIndex ? { ...requirement, ...patch } : requirement)
+    });
+  }
+
+  function updateCourseQuiz(sectionIndex, quizIndex, patch) {
+    updateSection(sectionIndex, {
+      courseQuizzes: draft.sections[sectionIndex].courseQuizzes.map((quiz, index) => index === quizIndex ? { ...quiz, ...patch } : quiz)
+    });
+  }
+
+  function updateCourseQuizQuestion(sectionIndex, quizIndex, questionIndex, patch) {
+    const quiz = draft.sections[sectionIndex].courseQuizzes[quizIndex];
+    updateCourseQuiz(sectionIndex, quizIndex, {
+      questions: quiz.questions.map((question, index) => index === questionIndex ? { ...question, ...patch } : question)
+    });
+  }
+
+  function updateCourseQuizOption(sectionIndex, quizIndex, questionIndex, optionIndex, patch) {
+    const question = draft.sections[sectionIndex].courseQuizzes[quizIndex].questions[questionIndex];
+    updateCourseQuizQuestion(sectionIndex, quizIndex, questionIndex, {
+      options: question.options.map((option, index) => index === optionIndex ? { ...option, ...patch } : option)
     });
   }
 
@@ -1029,6 +1076,59 @@ function CourseAdminTools({ selectedCourse, saveCourse, onClose }) {
                 ))}
                 <button type="button" className="ghost compact-button" onClick={() => updateSection(sectionIndex, { lessons: [...section.lessons, defaultCourseLesson()] })}><Plus size={16} />Добавить подраздел</button>
               </div>
+              <div className="builder-card nested-builder-card">
+                <div className="builder-card-head">
+                  <strong>Требования для прохождения раздела</strong>
+                </div>
+                <div className="builder-stack">
+                  {section.requirements.map((requirement, requirementIndex) => (
+                    <div className="requirement-row" key={requirementIndex}>
+                      <select value={requirement.type} onChange={(event) => updateRequirement(sectionIndex, requirementIndex, { type: event.target.value, quizId: '', seriesId: '' })}>
+                        <option value="quiz">Тест</option>
+                        <option value="series">Серия</option>
+                      </select>
+                      {requirement.type === 'series' ? (
+                        <select value={requirement.seriesId || ''} onChange={(event) => updateRequirement(sectionIndex, requirementIndex, { seriesId: event.target.value })}>
+                          <option value="">Выберите серию</option>
+                          {quizSeriesRows.map((series) => <option key={series.id || series.name} value={series.id}>{series.name}</option>)}
+                        </select>
+                      ) : (
+                        <select value={requirement.quizId || ''} onChange={(event) => updateRequirement(sectionIndex, requirementIndex, { quizId: event.target.value })}>
+                          <option value="">Выберите тест</option>
+                          {availableQuizzes.map((quiz) => <option key={quiz.id} value={quiz.id}>{quiz.category}: {quiz.title}</option>)}
+                        </select>
+                      )}
+                      <button type="button" className="icon-button small" onClick={() => updateSection(sectionIndex, { requirements: section.requirements.filter((_, index) => index !== requirementIndex) })}>×</button>
+                    </div>
+                  ))}
+                  <div className="admin-card-actions">
+                    <button type="button" className="ghost compact-button" onClick={() => updateSection(sectionIndex, { requirements: [...section.requirements, { type: 'quiz', quizId: '', seriesId: '' }] })}><Plus size={16} />Привязать тест</button>
+                    <button type="button" className="ghost compact-button" onClick={() => updateSection(sectionIndex, { requirements: [...section.requirements, { type: 'series', quizId: '', seriesId: '' }] })}><Plus size={16} />Привязать серию</button>
+                  </div>
+                </div>
+              </div>
+              <div className="builder-card nested-builder-card">
+                <div className="builder-card-head">
+                  <strong>Тесты этого раздела</strong>
+                </div>
+                <div className="builder-stack">
+                  {section.courseQuizzes.map((quiz, quizIndex) => (
+                    <details className="builder-card builder-details" key={quizIndex}>
+                      <summary className="builder-summary">
+                        <span><strong>{quiz.quizType === 'survey' ? 'Опрос' : 'Тест'} {quizIndex + 1}</strong><small>{quiz.title || 'Без названия'}</small></span>
+                        <button type="button" className="ghost compact-button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); updateSection(sectionIndex, { courseQuizzes: section.courseQuizzes.filter((_, index) => index !== quizIndex) }); }}><Trash2 size={15} />Удалить</button>
+                      </summary>
+                      <CourseQuizEditor
+                        quiz={quiz}
+                        updateQuiz={(patch) => updateCourseQuiz(sectionIndex, quizIndex, patch)}
+                        updateQuestion={(questionIndex, patch) => updateCourseQuizQuestion(sectionIndex, quizIndex, questionIndex, patch)}
+                        updateOption={(questionIndex, optionIndex, patch) => updateCourseQuizOption(sectionIndex, quizIndex, questionIndex, optionIndex, patch)}
+                      />
+                    </details>
+                  ))}
+                  <button type="button" className="ghost compact-button" onClick={() => updateSection(sectionIndex, { courseQuizzes: [...section.courseQuizzes, defaultCourseQuiz()] })}><Plus size={16} />Создать тест раздела</button>
+                </div>
+              </div>
               </div>
             </details>
           ))}
@@ -1040,6 +1140,123 @@ function CourseAdminTools({ selectedCourse, saveCourse, onClose }) {
         </div>
       </form>
     </section>
+  );
+}
+
+function CourseQuizEditor({ quiz, updateQuiz, updateQuestion, updateOption }) {
+  const isSurvey = quiz.quizType === 'survey';
+  function setQuestionOptions(questionIndex, options) {
+    updateQuestion(questionIndex, { options });
+  }
+
+  return (
+    <div className="builder-details-body">
+      <div className="field-grid">
+        <label>Название<input value={quiz.title} onChange={(event) => updateQuiz({ title: event.target.value })} /></label>
+        <label>Тип
+          <select value={quiz.quizType} onChange={(event) => updateQuiz({ quizType: event.target.value, questions: quiz.questions.map((question) => ({ ...question, showHint: event.target.value === 'testing' ? question.showHint : false })) })}>
+            <option value="testing">Тестирование</option>
+            <option value="survey">Опрос</option>
+          </select>
+        </label>
+      </div>
+      {!isSurvey && (
+        <div className="field-grid">
+          <label>Проходной балл<input type="number" min="1" value={quiz.passScore} onChange={(event) => updateQuiz({ passScore: event.target.value })} /></label>
+          <label>Баллы за прохождение<input type="number" min="0" value={quiz.rewardPoints} onChange={(event) => updateQuiz({ rewardPoints: event.target.value })} /></label>
+        </div>
+      )}
+      <div className="builder-stack">
+        {quiz.questions.map((question, questionIndex) => {
+          const answerType = isSurvey && question.answerType === 'text' ? 'text' : question.answerType === 'multiple' ? 'multiple' : 'single';
+          return (
+            <div className="builder-card" key={questionIndex}>
+              <div className="builder-card-head">
+                <strong>Вопрос {questionIndex + 1}</strong>
+                {quiz.questions.length > 1 && <button type="button" className="ghost compact-button" onClick={() => updateQuiz({ questions: quiz.questions.filter((_, index) => index !== questionIndex) })}><Trash2 size={15} />Удалить</button>}
+              </div>
+              <RichTextInput label="Текст вопроса" rows={3} value={question.text} onChange={(text) => updateQuestion(questionIndex, { text })} />
+              <div className="field-grid">
+                <label>Формат ответа
+                  <select value={answerType} onChange={(event) => updateQuestion(questionIndex, { answerType: event.target.value })}>
+                    <option value="single">Один вариант</option>
+                    <option value="multiple">Несколько вариантов</option>
+                    {isSurvey && <option value="text">Текстовый ответ</option>}
+                  </select>
+                </label>
+                {!isSurvey && (
+                  <label className="check-line"><input type="checkbox" checked={question.showHint !== false} onChange={(event) => updateQuestion(questionIndex, { showHint: event.target.checked })} /> Показывать подсказку при ошибке</label>
+                )}
+              </div>
+              {!isSurvey && question.showHint !== false && (
+                <RichTextInput label="Подсказка" rows={2} value={question.hint || ''} onChange={(hint) => updateQuestion(questionIndex, { hint })} />
+              )}
+              {answerType !== 'text' && (
+                <div className="option-builder">
+                  {question.options.map((option, optionIndex) => (
+                    <label className="option-line" key={optionIndex}>
+                      {!isSurvey && (
+                        <input
+                          type={answerType === 'multiple' ? 'checkbox' : 'radio'}
+                          name={`course-quiz-${quiz.id || 'new'}-${questionIndex}`}
+                          checked={Boolean(option.isCorrect)}
+                          onChange={(event) => {
+                            if (answerType === 'multiple') updateOption(questionIndex, optionIndex, { isCorrect: event.target.checked });
+                            else setQuestionOptions(questionIndex, question.options.map((item, index) => ({ ...item, isCorrect: index === optionIndex })));
+                          }}
+                        />
+                      )}
+                      <input value={option.text} placeholder={`Вариант ${optionIndex + 1}`} onChange={(event) => updateOption(questionIndex, optionIndex, { text: event.target.value })} />
+                      {question.options.length > 2 && <button type="button" className="icon-button small" onClick={() => setQuestionOptions(questionIndex, question.options.filter((_, index) => index !== optionIndex))}>×</button>}
+                    </label>
+                  ))}
+                  <button type="button" className="ghost compact-button" onClick={() => setQuestionOptions(questionIndex, [...question.options, { text: '', isCorrect: false }])}><Plus size={16} />Добавить вариант</button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+        <button type="button" className="ghost compact-button" onClick={() => updateQuiz({ questions: [...quiz.questions, { ...defaultQuizQuestion(), showHint: false }] })}><Plus size={16} />Добавить вопрос</button>
+      </div>
+    </div>
+  );
+}
+
+function CourseRequirements({ requirements = [], openQuiz }) {
+  const visible = requirements.filter((requirement) => requirement.type !== 'course_quiz');
+  if (!visible.length) return null;
+  return (
+    <div className="course-requirements">
+      <strong>Чтобы завершить раздел</strong>
+      {visible.map((requirement, index) => {
+        if (requirement.type === 'series') {
+          return (
+            <div className="requirement-card" key={`${requirement.type}-${requirement.id || index}`}>
+              <div>
+                <b>{requirement.title}</b>
+                <span>{requirement.passedCount || 0}/{requirement.totalCount || 0} пройдено</span>
+              </div>
+              <div className="course-actions inline-course-actions">
+                {(requirement.quizzes || []).map((quiz) => (
+                  <button type="button" className={cx('secondary', quiz.passed && 'is-complete')} key={quiz.slug} onClick={() => openQuiz(quiz.slug)}>
+                    {quiz.title}
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        }
+        return (
+          <div className="requirement-card" key={`${requirement.type}-${requirement.id || index}`}>
+            <div>
+              <b>{requirement.title}</b>
+              <span>{requirement.passed ? 'пройдено' : 'нужно пройти'}</span>
+            </div>
+            {!requirement.passed && <button type="button" className="secondary" onClick={() => openQuiz(requirement.slug)}>Открыть</button>}
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -1091,7 +1308,8 @@ function CourseSectionPage({ course, sections, section, setActiveSectionSlug, co
             })}
           </div>
           <CourseQuizActions quizzes={remainingQuizzes} openQuiz={openQuiz} />
-          {!section.quizzes?.length && section.user_status !== 'completed' && (
+          <CourseRequirements requirements={section.requirements} openQuiz={openQuiz} />
+          {Number(section.required_count || 0) === 0 && section.user_status !== 'completed' && (
             <div className="course-actions">
               <button className="primary" onClick={() => completeSection(section.slug)}>Завершить этап</button>
             </div>
@@ -1169,9 +1387,9 @@ function TestsPage({ quizzes, openQuiz, openContentPage, openSeriesDescription, 
                 return (
                   <button className={cx('test-card', passed && 'test-card-passed')} key={quiz.slug} onClick={() => openQuiz(quiz.slug)}>
                     {passed && <span className="test-passed-badge"><Check size={14} />Пройден</span>}
-                    <span>{formatDifficulty(quiz.difficulty)}</span>
+                    <span>{quiz.quiz_type === 'survey' ? 'опрос' : formatDifficulty(quiz.difficulty)}</span>
                     <strong>{quiz.title.replace(`${category}: `, '')}</strong>
-                    <small>{quiz.max_score} вопросов · вес {quiz.weight}</small>
+                    <small>{quiz.quiz_type === 'survey' ? 'без оценки' : `${quiz.max_score} вопросов · вес ${quiz.weight}`}</small>
                   </button>
                 );
               })}
@@ -1183,6 +1401,28 @@ function TestsPage({ quizzes, openQuiz, openContentPage, openSeriesDescription, 
   );
 }
 
+function answerIds(value) {
+  const raw = Array.isArray(value) ? value : [value];
+  return raw.map(Number).filter(Boolean);
+}
+
+function hasQuestionAnswer(answer, answerType) {
+  if (answerType === 'text') return String(answer || '').trim().length > 0;
+  if (answerType === 'multiple') return Array.isArray(answer) && answer.length > 0;
+  return Boolean(answer);
+}
+
+function isQuestionAnswerCorrect(question, answer) {
+  const selectedIds = answerIds(answer);
+  const correctIds = (question.options || []).filter((option) => option.isCorrect).map((option) => Number(option.id));
+  if (question.answer_type === 'multiple') {
+    if (selectedIds.length !== correctIds.length) return false;
+    const selected = new Set(selectedIds);
+    return correctIds.every((id) => selected.has(id));
+  }
+  return selectedIds.length === 1 && correctIds.includes(selectedIds[0]);
+}
+
 function QuizPage({ quizState, submitQuiz, close }) {
   const [answers, setAnswers] = useState({});
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -1190,7 +1430,8 @@ function QuizPage({ quizState, submitQuiz, close }) {
   const [feedback, setFeedback] = useState(null);
   const currentQuestion = quizState.questions[currentIndex];
   const currentAnswer = currentQuestion ? answers[currentQuestion.id] : null;
-  const selectedOption = currentQuestion?.options.find((option) => option.id === currentAnswer);
+  const answerType = currentQuestion?.answer_type || 'single';
+  const isSurvey = quizState.quiz.quiz_type === 'survey';
   const isLast = currentIndex === quizState.questions.length - 1;
   const wrongAnswer = feedback?.status === 'wrong';
 
@@ -1212,13 +1453,18 @@ function QuizPage({ quizState, submitQuiz, close }) {
   }
 
   async function handleAnswer() {
-    if (!currentAnswer) return;
+    if (!hasQuestionAnswer(currentAnswer, answerType)) return;
     if (wrongAnswer) {
       if (isLast) await finish();
       else goNext();
       return;
     }
-    if (selectedOption?.isCorrect) {
+    if (isSurvey || isQuestionAnswerCorrect(currentQuestion, currentAnswer)) {
+      if (isLast) await finish();
+      else goNext();
+      return;
+    }
+    if (currentQuestion.show_hint === false) {
       if (isLast) await finish();
       else goNext();
       return;
@@ -1243,8 +1489,8 @@ function QuizPage({ quizState, submitQuiz, close }) {
         <section className="result-panel">
           <Medal size={28} />
           <div>
-            <h2>{result.score}/{result.max_score}</h2>
-            <p>{result.passed ? 'Тест пройден.' : 'Можно пройти еще раз.'}</p>
+            <h2>{isSurvey ? 'Опрос отправлен' : `${result.score}/${result.max_score}`}</h2>
+            <p>{isSurvey ? 'Ответы переданы в отчетную группу.' : result.passed ? 'Тест пройден.' : 'Можно пройти еще раз.'}</p>
             <button className="primary" onClick={close}>Закрыть результат</button>
           </div>
         </section>
@@ -1254,21 +1500,43 @@ function QuizPage({ quizState, submitQuiz, close }) {
             <span>Вопрос {currentIndex + 1}/{quizState.questions.length}</span>
             <RichText as="h2" text={currentQuestion.text} />
             <MediaGrid media={[currentQuestion.media_url || currentQuestion.mediaUrl].filter(Boolean)} className="question-media" />
-            <div className="options">
-              {currentQuestion.options.map((option) => {
-                const isSelected = currentAnswer === option.id;
-                return (
-                  <button
-                    key={option.id}
-                    className={cx(isSelected && 'selected', feedback && isSelected && (option.isCorrect ? 'correct' : 'wrong'))}
-                    onClick={() => !feedback && setAnswers((current) => ({ ...current, [currentQuestion.id]: option.id }))}
-                    disabled={Boolean(feedback)}
-                  >
-                    {option.text}
-                  </button>
-                );
-              })}
-            </div>
+            {answerType === 'text' ? (
+              <textarea
+                className="survey-text-answer"
+                rows={5}
+                value={currentAnswer || ''}
+                onChange={(event) => setAnswers((current) => ({ ...current, [currentQuestion.id]: event.target.value }))}
+                placeholder="Введите ответ"
+              />
+            ) : (
+              <div className="options">
+                {currentQuestion.options.map((option) => {
+                  const selectedIds = answerIds(currentAnswer);
+                  const isSelected = selectedIds.includes(Number(option.id));
+                  return (
+                    <button
+                      key={option.id}
+                      className={cx(isSelected && 'selected', feedback && isSelected && (option.isCorrect ? 'correct' : 'wrong'))}
+                      onClick={() => {
+                        if (feedback) return;
+                        setAnswers((current) => {
+                          if (answerType === 'multiple') {
+                            const next = isSelected
+                              ? selectedIds.filter((id) => id !== Number(option.id))
+                              : [...selectedIds, Number(option.id)];
+                            return { ...current, [currentQuestion.id]: next };
+                          }
+                          return { ...current, [currentQuestion.id]: option.id };
+                        });
+                      }}
+                      disabled={Boolean(feedback)}
+                    >
+                      {option.text}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             {wrongAnswer && (
               <div className="hint-panel">
                 <strong>Подсказка к вопросу</strong>
@@ -1278,7 +1546,7 @@ function QuizPage({ quizState, submitQuiz, close }) {
             )}
           </section>
           <div className="sticky-action">
-            <button className={cx('primary', wrongAnswer && 'danger')} disabled={!currentAnswer} onClick={handleAnswer}>
+            <button className={cx('primary', wrongAnswer && 'danger')} disabled={!hasQuestionAnswer(currentAnswer, answerType)} onClick={handleAnswer}>
               {wrongAnswer ? 'Следующий вопрос' : 'Ответить'}
             </button>
           </div>
@@ -1289,6 +1557,7 @@ function QuizPage({ quizState, submitQuiz, close }) {
 }
 
 function AttemptHistoryPage({ detail, close }) {
+  const isSurvey = detail.attempt.quiz_type === 'survey';
   return (
     <main className="page">
       <PageHeader eyebrow={attemptCategoryLabel(detail.attempt)} title={detail.attempt.title}>
@@ -1297,8 +1566,8 @@ function AttemptHistoryPage({ detail, close }) {
       <section className="result-panel attempt-summary">
         <ClipboardList size={28} />
         <div>
-          <h2>{detail.attempt.score}/{detail.attempt.max_score}</h2>
-          <p>{attemptCategoryLabel(detail.attempt)} · {formatDifficulty(detail.attempt.difficulty)}</p>
+          <h2>{isSurvey ? 'Опрос отправлен' : `${detail.attempt.score}/${detail.attempt.max_score}`}</h2>
+          <p>{isSurvey ? 'Ответы переданы в отчетную группу' : `${attemptCategoryLabel(detail.attempt)} · ${formatDifficulty(detail.attempt.difficulty)}`}</p>
         </div>
       </section>
       <section className="attempt-question-list">
@@ -1308,7 +1577,9 @@ function AttemptHistoryPage({ detail, close }) {
             <RichText as="h2" text={question.text} />
             <div className="attempt-answer-block">
               <p>Ваш ответ: <strong>{question.selectedOptionText || 'не выбран'}</strong></p>
-              {question.isCorrect ? (
+              {isSurvey ? (
+                <b className="answer-result correct"><CheckCircle2 size={17} /> Ответ получен</b>
+              ) : question.isCorrect ? (
                 <b className="answer-result correct"><CheckCircle2 size={17} /> Правильно</b>
               ) : (
                 <b className="answer-result wrong"><X size={17} /> Неправильно</b>
@@ -1557,6 +1828,7 @@ function quizToDraft(full) {
   const description = parseSeriesDescription(full.description);
   return {
     title: full.title || '',
+    quizType: full.quiz_type || 'testing',
     seriesMode: 'existing',
     series: full.category,
     newSeries: '',
@@ -1571,6 +1843,8 @@ function quizToDraft(full) {
       text: question.text,
       hint: question.hint || '',
       mediaUrl: question.media_url || '',
+      answerType: question.answer_type || 'single',
+      showHint: question.show_hint !== false,
       options: question.options.map((option) => ({ text: option.text, isCorrect: option.isCorrect }))
     }))
   };
@@ -1580,24 +1854,45 @@ function buildQuizPayloadFromDraft(draft) {
   const series = (draft.seriesMode === 'new' ? draft.newSeries : draft.series).trim();
   const difficulty = (draft.difficulty === 'another' ? draft.customDifficulty : draft.difficulty).trim();
   const title = draft.title.trim();
+  const quizType = draft.quizType === 'survey' ? 'survey' : 'testing';
   if (!series || !difficulty || !title) {
     throw new Error('Заполните серию, название и сложность теста.');
   }
   const questions = draft.questions
-    .map((question) => ({
-      text: question.text.trim(),
-      hint: question.hint?.trim() || '',
-      mediaUrl: question.mediaUrl?.trim() || '',
-      options: question.options
-        .map((option) => ({ text: option.text.trim(), isCorrect: Boolean(option.isCorrect) }))
-        .filter((option) => option.text)
-    }))
-    .filter((question) => question.text && question.options.length >= 2 && question.options.some((option) => option.isCorrect));
+    .map((question) => {
+      const answerType = quizType === 'survey' && question.answerType === 'text'
+        ? 'text'
+        : question.answerType === 'multiple'
+          ? 'multiple'
+          : 'single';
+      const options = answerType === 'text'
+        ? []
+        : question.options
+          .map((option) => ({ text: option.text.trim(), isCorrect: quizType === 'testing' && Boolean(option.isCorrect) }))
+          .filter((option) => option.text);
+      return {
+        text: question.text.trim(),
+        hint: quizType === 'testing' ? question.hint?.trim() || '' : '',
+        mediaUrl: question.mediaUrl?.trim() || '',
+        answerType,
+        showHint: quizType === 'testing' ? question.showHint !== false : false,
+        options
+      };
+    })
+    .filter((question) => {
+      if (!question.text) return false;
+      if (question.answerType === 'text') return quizType === 'survey';
+      if (question.options.length < 2) return false;
+      return quizType === 'survey' || question.options.some((option) => option.isCorrect);
+    });
   if (!questions.length || questions.length !== draft.questions.length) {
-    throw new Error('В каждом вопросе должен быть текст, минимум два варианта и один правильный ответ.');
+    throw new Error(quizType === 'survey'
+      ? 'В каждом вопросе опроса должен быть текст. Для выбора нужны минимум два варианта, для текстового ответа варианты не нужны.'
+      : 'В каждом вопросе теста должен быть текст, минимум два варианта и минимум один правильный ответ.');
   }
   return {
     title,
+    quizType,
     category: series,
     difficulty,
     weight: Number(draft.weight || 1),
@@ -1605,6 +1900,19 @@ function buildQuizPayloadFromDraft(draft) {
     description: draft.hasDescription ? serializeSeriesDescription(draft.descriptionTitle, draft.descriptionBlocks) : undefined,
     questions
   };
+}
+
+function BrowserOnlyPage() {
+  return (
+    <main className="browser-gate">
+      <section className="browser-gate-card">
+        <div className="browser-gate-icon"><Lock size={30} /></div>
+        <h1>Академия доступна только через Telegram</h1>
+        <p>Откройте мини-приложение из меню LOFT_HELPER_BOT_2.0, чтобы войти в свой профиль и продолжить обучение.</p>
+        <a className="primary browser-gate-button" href="https://t.me/LOFT_HELPER_BOT_2_0" target="_blank" rel="noreferrer">Открыть Telegram</a>
+      </section>
+    </main>
+  );
 }
 
 function defaultSeriesDraft() {
@@ -1694,6 +2002,8 @@ function SeriesEditorForm({ draft, setDraft, onSubmit, submitLabel, onCancel }) 
 }
 
 function QuizEditorForm({ draft, setDraft, quizSeries, seriesDescriptionMap, onSubmit, submitLabel, onCancel, formId = 'quiz', hideSeries = false, hideDescription = false }) {
+  const isSurvey = draft.quizType === 'survey';
+
   function updateQuestion(index, patch) {
     setDraft((current) => ({
       ...current,
@@ -1722,6 +2032,12 @@ function QuizEditorForm({ draft, setDraft, quizSeries, seriesDescriptionMap, onS
     <form className="editor-form" onSubmit={onSubmit}>
       <label>Название теста<input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} required /></label>
       <VisibilityToggle enabled={draft.isVisible !== false} onChange={(isVisible) => setDraft({ ...draft, isVisible })} />
+      <label>Тип
+        <select value={draft.quizType} onChange={(event) => setDraft({ ...draft, quizType: event.target.value })}>
+          <option value="testing">Тестирование</option>
+          <option value="survey">Опрос</option>
+        </select>
+      </label>
       <div className="field-grid">
         <label>Сложность
           <select value={draft.difficulty} onChange={(event) => setDraft({ ...draft, difficulty: event.target.value })}>
@@ -1792,23 +2108,49 @@ function QuizEditorForm({ draft, setDraft, quizSeries, seriesDescriptionMap, onS
             </summary>
             <div className="builder-details-body">
               <RichTextInput label="Текст вопроса" rows={3} value={question.text} onChange={(text) => updateQuestion(questionIndex, { text })} />
-              <RichTextInput label="Подсказка при ошибке" rows={2} value={question.hint || ''} placeholder="Коротко объясните, на что обратить внимание, если выбран неверный вариант." onChange={(hint) => updateQuestion(questionIndex, { hint })} />
+              <div className="field-grid">
+                <label>Формат ответа
+                  <select value={isSurvey && question.answerType === 'text' ? 'text' : question.answerType === 'multiple' ? 'multiple' : 'single'} onChange={(event) => updateQuestion(questionIndex, { answerType: event.target.value })}>
+                    <option value="single">Один вариант</option>
+                    <option value="multiple">Несколько вариантов</option>
+                    {isSurvey && <option value="text">Текстовый ответ</option>}
+                  </select>
+                </label>
+                {!isSurvey && <label className="check-line"><input type="checkbox" checked={question.showHint !== false} onChange={(event) => updateQuestion(questionIndex, { showHint: event.target.checked })} /> Показывать подсказку</label>}
+              </div>
+              {!isSurvey && question.showHint !== false && (
+                <RichTextInput label="Подсказка при ошибке" rows={2} value={question.hint || ''} placeholder="Коротко объясните, на что обратить внимание, если выбран неверный вариант." onChange={(hint) => updateQuestion(questionIndex, { hint })} />
+              )}
               <MediaUploadField
                 label="Фото или медиа к вопросу"
                 value={question.mediaUrl}
                 multiple={false}
                 onChange={(mediaUrl) => updateQuestion(questionIndex, { mediaUrl })}
               />
-              <div className="option-builder">
-                {question.options.map((option, optionIndex) => (
-                  <label className="option-line" key={optionIndex}>
-                    <input type="radio" name={`${formId}-correct-${questionIndex}`} checked={option.isCorrect} onChange={() => updateQuestion(questionIndex, { options: question.options.map((item, index) => ({ ...item, isCorrect: index === optionIndex })) })} />
-                    <input value={option.text} placeholder={`Вариант ${optionIndex + 1}`} onChange={(event) => updateOption(questionIndex, optionIndex, { text: event.target.value })} />
-                    {question.options.length > 2 && <button type="button" className="icon-button small" onClick={() => updateQuestion(questionIndex, { options: question.options.filter((_, index) => index !== optionIndex) })}>×</button>}
-                  </label>
-                ))}
-              </div>
-              <button type="button" className="ghost compact-button" onClick={() => updateQuestion(questionIndex, { options: [...question.options, { text: '', isCorrect: false }] })}><Plus size={16} />Добавить вариант</button>
+              {!(isSurvey && question.answerType === 'text') && (
+                <>
+                  <div className="option-builder">
+                    {question.options.map((option, optionIndex) => (
+                      <label className="option-line" key={optionIndex}>
+                        {!isSurvey && (
+                          <input
+                            type={question.answerType === 'multiple' ? 'checkbox' : 'radio'}
+                            name={`${formId}-correct-${questionIndex}`}
+                            checked={option.isCorrect}
+                            onChange={(event) => {
+                              if (question.answerType === 'multiple') updateOption(questionIndex, optionIndex, { isCorrect: event.target.checked });
+                              else updateQuestion(questionIndex, { options: question.options.map((item, index) => ({ ...item, isCorrect: index === optionIndex })) });
+                            }}
+                          />
+                        )}
+                        <input value={option.text} placeholder={`Вариант ${optionIndex + 1}`} onChange={(event) => updateOption(questionIndex, optionIndex, { text: event.target.value })} />
+                        {question.options.length > 2 && <button type="button" className="icon-button small" onClick={() => updateQuestion(questionIndex, { options: question.options.filter((_, index) => index !== optionIndex) })}>×</button>}
+                      </label>
+                    ))}
+                  </div>
+                  <button type="button" className="ghost compact-button" onClick={() => updateQuestion(questionIndex, { options: [...question.options, { text: '', isCorrect: false }] })}><Plus size={16} />Добавить вариант</button>
+                </>
+              )}
             </div>
           </details>
         ))}
@@ -2166,6 +2508,8 @@ function defaultQuizQuestion() {
     text: '',
     hint: '',
     mediaUrl: '',
+    answerType: 'single',
+    showHint: true,
     options: [
       { text: '', isCorrect: true },
       { text: '', isCorrect: false },
@@ -2302,11 +2646,26 @@ function defaultCourseLesson() {
   return { title: '', blocks: [defaultContentBlock()] };
 }
 
+function defaultCourseQuiz() {
+  return {
+    id: null,
+    title: '',
+    quizType: 'testing',
+    difficulty: 'course',
+    weight: 1,
+    passScore: 1,
+    rewardPoints: 0,
+    questions: [{ ...defaultQuizQuestion(), showHint: false }]
+  };
+}
+
 function defaultCourseSection() {
   return {
     title: '',
     description: '',
-    lessons: [defaultCourseLesson()]
+    lessons: [defaultCourseLesson()],
+    requirements: [],
+    courseQuizzes: []
   };
 }
 
@@ -2341,6 +2700,28 @@ function courseToDraft(selectedCourse) {
         id: lesson.id,
         title: lesson.title || '',
         blocks: parseEditableLessonBlocks(lesson)
+      })),
+      requirements: (section.requirements || []).map((requirement) => ({
+        type: requirement.requirement_type || requirement.type || 'quiz',
+        quizId: requirement.quiz_id || requirement.quizId || '',
+        seriesId: requirement.series_id || requirement.seriesId || ''
+      })),
+      courseQuizzes: (section.courseQuizzes || section.course_quizzes || []).map((quiz) => ({
+        id: quiz.id,
+        title: quiz.title || '',
+        quizType: quiz.quiz_type || 'testing',
+        difficulty: quiz.difficulty || 'course',
+        weight: quiz.weight || 1,
+        passScore: quiz.pass_score || quiz.passScore || 1,
+        rewardPoints: quiz.reward_points || quiz.rewardPoints || 0,
+        questions: (quiz.questions?.length ? quiz.questions : [defaultQuizQuestion()]).map((question) => ({
+          text: question.text || '',
+          hint: question.hint || '',
+          mediaUrl: question.media_url || question.mediaUrl || '',
+          answerType: question.answer_type || question.answerType || 'single',
+          showHint: question.show_hint !== false && question.showHint !== false,
+          options: (question.options || []).map((option) => ({ text: option.text, isCorrect: option.isCorrect }))
+        }))
       }))
     }))
   };
@@ -2356,6 +2737,17 @@ function courseDraftToPayload(draft) {
       id: section.id,
       title: section.title,
       description: section.description,
+      requirements: section.requirements,
+      courseQuizzes: section.courseQuizzes.map((quiz) => ({
+        id: quiz.id,
+        title: quiz.title,
+        quizType: quiz.quizType,
+        difficulty: quiz.difficulty,
+        weight: Number(quiz.weight || 1),
+        passScore: Number(quiz.passScore || 1),
+        rewardPoints: Number(quiz.rewardPoints || 0),
+        questions: buildCourseQuizQuestions(quiz)
+      })),
       lessons: section.lessons.map((lesson) => ({
         id: lesson.id,
         title: lesson.title,
@@ -2366,9 +2758,35 @@ function courseDraftToPayload(draft) {
   };
 }
 
+function buildCourseQuizQuestions(quiz) {
+  const quizType = quiz.quizType === 'survey' ? 'survey' : 'testing';
+  return (quiz.questions || [])
+    .map((question) => {
+      const answerType = quizType === 'survey' && question.answerType === 'text'
+        ? 'text'
+        : question.answerType === 'multiple'
+          ? 'multiple'
+          : 'single';
+      return {
+        text: question.text?.trim() || '',
+        hint: quizType === 'testing' ? question.hint?.trim() || '' : '',
+        mediaUrl: question.mediaUrl?.trim() || '',
+        answerType,
+        showHint: quizType === 'testing' ? question.showHint !== false : false,
+        options: answerType === 'text'
+          ? []
+          : (question.options || [])
+            .map((option) => ({ text: option.text.trim(), isCorrect: quizType === 'testing' && Boolean(option.isCorrect) }))
+            .filter((option) => option.text)
+      };
+    })
+    .filter((question) => question.text && (question.answerType === 'text' || question.options.length >= 2));
+}
+
 function defaultQuizDraft() {
   return {
     title: '',
+    quizType: 'testing',
     seriesMode: 'existing',
     series: '',
     newSeries: '',
@@ -2630,6 +3048,7 @@ export function App() {
   }
 
   if (boot.loading) return <div className="splash"><LayoutDashboard size={34} /><span>AcademyLH</span></div>;
+  if (boot.error && /Telegram|initData/i.test(boot.error)) return <BrowserOnlyPage />;
   if (boot.error) return <div className="splash error"><Lock size={34} /><span>{boot.error}</span></div>;
   if (quizState) return <QuizPage quizState={quizState} submitQuiz={submitQuiz} close={() => setQuizState(null)} />;
   if (attemptDetail) return <AttemptHistoryPage detail={attemptDetail} close={() => setAttemptDetail(null)} />;
@@ -2639,7 +3058,7 @@ export function App() {
     <div className="app-shell">
       {page === 'home' && <HomePage data={home} setPage={setPage} adminMode={adminMode} setAdminMode={setAdminMode} />}
       {page === 'profile' && <ProfilePage me={me} setPage={setPage} openCourseSection={openCourseSection} openAttempt={openAttempt} />}
-      {page === 'courses' && <CoursesPage courses={courses} selectedCourse={selectedCourse} activeSectionSlug={activeSectionSlug} setActiveSectionSlug={setActiveSectionSlug} openCourse={openCourse} completeSection={completeSection} openQuiz={openQuiz} setPage={setPage} adminMode={home.user.role === 'admin' && adminMode} saveCourse={saveCourse} deleteCourse={deleteCourse} toggleCourseVisibility={toggleCourseVisibility} />}
+      {page === 'courses' && <CoursesPage courses={courses} selectedCourse={selectedCourse} activeSectionSlug={activeSectionSlug} setActiveSectionSlug={setActiveSectionSlug} openCourse={openCourse} completeSection={completeSection} openQuiz={openQuiz} setPage={setPage} adminMode={home.user.role === 'admin' && adminMode} saveCourse={saveCourse} deleteCourse={deleteCourse} toggleCourseVisibility={toggleCourseVisibility} availableQuizzes={admin?.quizzes || []} quizSeriesRows={admin?.series || []} />}
       {page === 'tests' && <TestsPage quizzes={quizzes} openQuiz={openQuiz} openContentPage={openContentPage} openSeriesDescription={openSeriesDescription} setPage={setPage} />}
       {page === 'leaderboard' && <LeaderboardPage leaderboard={leaderboard} setPage={setPage} />}
       {page === 'tasks' && <TasksPage tasks={tasks} submitTask={submitTask} loadMenu={loadMenu} loadMenuFilters={() => apiFetch('/tasks/dish-photo/menu-filters')} setPage={setPage} />}

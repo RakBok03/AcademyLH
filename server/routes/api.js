@@ -49,6 +49,17 @@ function hasVisibility(body = {}) {
   return body.isVisible !== undefined || body.is_visible !== undefined;
 }
 
+function normalizeQuizType(value) {
+  return value === 'survey' || value === 'poll' ? 'survey' : 'testing';
+}
+
+function normalizeAnswerType(value, quizType = 'testing') {
+  const type = String(value || '').toLowerCase();
+  if (quizType === 'survey' && type === 'text') return 'text';
+  if (type === 'multiple') return 'multiple';
+  return 'single';
+}
+
 function formatPointsLabel(value) {
   const number = Math.abs(Number(value) || 0);
   const mod100 = number % 100;
@@ -246,30 +257,19 @@ async function isSectionCompleted(userId, sectionId) {
   );
   if (stored.rows[0]) return true;
 
-  const required = await query(
-    `SELECT COUNT(*)::int AS total
-     FROM quizzes
-     WHERE section_id = $1 AND source = 'course' AND course_required = true`,
-    [sectionId]
-  );
-  const total = Number(required.rows[0]?.total || 0);
-  if (!total) return false;
-
-  const passed = await query(
-    `SELECT COUNT(DISTINCT q.id)::int AS total
-     FROM quizzes q
-     JOIN quiz_attempts qa ON qa.quiz_id = q.id AND qa.user_id = $2 AND qa.passed = true
-     WHERE q.section_id = $1 AND q.source = 'course' AND q.course_required = true`,
-    [sectionId, userId]
-  );
-  return Number(passed.rows[0]?.total || 0) >= total;
+  const stats = await getSectionRequirementStats(userId, sectionId);
+  return stats.requiredCount > 0 && stats.passedCount >= stats.requiredCount;
 }
 
 async function canAccessSection(user, sectionId) {
-  if (user.course_completed_at || Number(user.title_score || 0) > 100) return true;
   const current = await query('SELECT id, course_id, order_index FROM course_sections WHERE id = $1', [sectionId]);
   const section = current.rows[0];
   if (!section) return false;
+  const completedCourse = await query(
+    'SELECT 1 FROM user_course_progress WHERE user_id = $1 AND course_id = $2 LIMIT 1',
+    [user.id, section.course_id]
+  );
+  if (completedCourse.rows[0]) return true;
   if (section.order_index === 1) return true;
   const previous = await query(
     `SELECT id FROM course_sections
@@ -282,21 +282,146 @@ async function canAccessSection(user, sectionId) {
   return isSectionCompleted(user.id, previous.rows[0].id);
 }
 
-async function refreshCourseSectionCompletion(userId, sectionId) {
-  const stats = await query(
-    `SELECT cs.order_index, cs.slug,
-            COUNT(q.id)::int AS required_count,
-            COUNT(DISTINCT passed.quiz_id)::int AS passed_count
-     FROM course_sections cs
-     LEFT JOIN quizzes q ON q.section_id = cs.id AND q.source = 'course' AND q.course_required = true
-     LEFT JOIN quiz_attempts passed ON passed.quiz_id = q.id AND passed.user_id = $2 AND passed.passed = true
-     WHERE cs.id = $1
-     GROUP BY cs.id`,
+async function getSectionRequirementStats(userId, sectionId, includeDetails = false) {
+  const requirements = [];
+  const courseQuizzes = await query(
+    `SELECT q.id, q.slug, q.title, q.pass_score, q.max_score, q.quiz_type,
+            COALESCE(best.best_score, 0) AS best_score,
+            COALESCE(best.passed, false) AS passed
+     FROM quizzes q
+     LEFT JOIN LATERAL (
+       SELECT MAX(score) AS best_score, BOOL_OR(passed) AS passed
+       FROM quiz_attempts qa
+       WHERE qa.quiz_id = q.id AND qa.user_id = $2
+     ) best ON true
+     WHERE q.section_id = $1 AND q.source = 'course' AND q.course_required = true
+     ORDER BY q.order_index, q.id`,
     [sectionId, userId]
   );
-  const row = stats.rows[0];
-  if (!row || Number(row.required_count || 0) === 0 || Number(row.passed_count || 0) < Number(row.required_count || 0)) {
-    return false;
+  for (const quiz of courseQuizzes.rows) {
+    requirements.push({
+      type: 'course_quiz',
+      id: quiz.id,
+      slug: quiz.slug,
+      title: quiz.title,
+      quizType: quiz.quiz_type,
+      passScore: Number(quiz.pass_score || 0),
+      maxScore: Number(quiz.max_score || 0),
+      bestScore: Number(quiz.best_score || 0),
+      passed: Boolean(quiz.passed)
+    });
+  }
+
+  const external = await query(
+    `SELECT csr.requirement_type, csr.quiz_id, csr.series_id,
+            q.slug AS quiz_slug, q.title AS quiz_title, q.pass_score AS quiz_pass_score,
+            q.max_score AS quiz_max_score, q.quiz_type AS quiz_type,
+            COALESCE(qbest.best_score, 0) AS quiz_best_score,
+            COALESCE(qbest.passed, false) AS quiz_passed,
+            qs.name AS series_name
+     FROM course_section_requirements csr
+     LEFT JOIN quizzes q ON q.id = csr.quiz_id
+     LEFT JOIN LATERAL (
+       SELECT MAX(score) AS best_score, BOOL_OR(passed) AS passed
+       FROM quiz_attempts qa
+       WHERE qa.quiz_id = q.id AND qa.user_id = $2
+     ) qbest ON true
+     LEFT JOIN quiz_series qs ON qs.id = csr.series_id
+     WHERE csr.section_id = $1
+     ORDER BY csr.order_index, csr.id`,
+    [sectionId, userId]
+  );
+
+  for (const req of external.rows) {
+    if (req.requirement_type === 'series') {
+      const seriesQuizzes = await query(
+        `SELECT q.id, q.slug, q.title, q.pass_score, q.max_score, q.quiz_type,
+                COALESCE(best.best_score, 0) AS best_score,
+                COALESCE(best.passed, false) AS passed
+         FROM quizzes q
+         LEFT JOIN LATERAL (
+           SELECT MAX(score) AS best_score, BOOL_OR(passed) AS passed
+           FROM quiz_attempts qa
+           WHERE qa.quiz_id = q.id AND qa.user_id = $2
+         ) best ON true
+         WHERE q.source = 'tests'
+           AND q.category = $1
+           AND q.is_visible = true
+         ORDER BY q.order_index, q.id`,
+        [req.series_name, userId]
+      );
+      const items = seriesQuizzes.rows.map((quiz) => ({
+        type: 'quiz',
+        id: quiz.id,
+        slug: quiz.slug,
+        title: quiz.title,
+        quizType: quiz.quiz_type,
+        passScore: Number(quiz.pass_score || 0),
+        maxScore: Number(quiz.max_score || 0),
+        bestScore: Number(quiz.best_score || 0),
+        passed: Boolean(quiz.passed)
+      }));
+      requirements.push({
+        type: 'series',
+        id: req.series_id,
+        title: req.series_name,
+        passed: items.length > 0 && items.every((item) => item.passed),
+        passedCount: items.filter((item) => item.passed).length,
+        totalCount: items.length,
+        quizzes: includeDetails ? items : []
+      });
+    } else if (req.quiz_id) {
+      requirements.push({
+        type: 'quiz',
+        id: req.quiz_id,
+        slug: req.quiz_slug,
+        title: req.quiz_title,
+        quizType: req.quiz_type,
+        passScore: Number(req.quiz_pass_score || 0),
+        maxScore: Number(req.quiz_max_score || 0),
+        bestScore: Number(req.quiz_best_score || 0),
+        passed: Boolean(req.quiz_passed)
+      });
+    }
+  }
+
+  return {
+    requiredCount: requirements.length,
+    passedCount: requirements.filter((item) => item.passed).length,
+    requirements: includeDetails ? requirements : []
+  };
+}
+
+async function markCourseCompleteIfReady(userId, courseId) {
+  const course = await query('SELECT * FROM courses WHERE id = $1', [courseId]);
+  if (!course.rows[0]) return null;
+  const sections = await query(
+    'SELECT id FROM course_sections WHERE course_id = $1 ORDER BY order_index, id',
+    [courseId]
+  );
+  if (!sections.rows.length) return null;
+  for (const section of sections.rows) {
+    if (!await isSectionCompleted(userId, section.id)) return null;
+  }
+  const completed = await query(
+    `INSERT INTO user_course_progress (user_id, course_id, completed_at)
+     VALUES ($1, $2, now())
+     ON CONFLICT (user_id, course_id) DO NOTHING
+     RETURNING completed_at`,
+    [userId, courseId]
+  );
+  return completed.rows[0] ? course.rows[0] : null;
+}
+
+async function refreshCourseSectionCompletion(userId, sectionId) {
+  const section = await query(
+    'SELECT id, course_id, order_index FROM course_sections WHERE id = $1',
+    [sectionId]
+  );
+  const row = section.rows[0];
+  const stats = row ? await getSectionRequirementStats(userId, sectionId) : { requiredCount: 0, passedCount: 0 };
+  if (!row || stats.requiredCount === 0 || stats.passedCount < stats.requiredCount) {
+    return { sectionCompleted: false, courseCompleted: null };
   }
 
   await query(
@@ -310,16 +435,84 @@ async function refreshCourseSectionCompletion(userId, sectionId) {
   await query(
     `UPDATE users
      SET academy_level = GREATEST(academy_level, $2),
-         course_completed_at = CASE WHEN $3 = 'final' THEN COALESCE(course_completed_at, now()) ELSE course_completed_at END,
          updated_at = now()
      WHERE id = $1`,
-    [userId, row.order_index, row.slug]
+    [userId, row.order_index]
   );
-  return true;
+  return {
+    sectionCompleted: true,
+    courseCompleted: await markCourseCompleteIfReady(userId, row.course_id)
+  };
+}
+
+async function refreshSectionsForPassedQuiz(userId, quiz) {
+  const sectionIds = new Set();
+  if (quiz.source === 'course' && quiz.section_id) sectionIds.add(Number(quiz.section_id));
+  const direct = await query(
+    'SELECT section_id FROM course_section_requirements WHERE quiz_id = $1',
+    [quiz.id]
+  );
+  direct.rows.forEach((row) => sectionIds.add(Number(row.section_id)));
+  const series = await query('SELECT id FROM quiz_series WHERE name = $1', [quiz.category]);
+  if (series.rows[0]) {
+    const rows = await query(
+      'SELECT section_id FROM course_section_requirements WHERE series_id = $1',
+      [series.rows[0].id]
+    );
+    rows.rows.forEach((row) => sectionIds.add(Number(row.section_id)));
+  }
+
+  const completedCourses = [];
+  for (const sectionId of sectionIds) {
+    const result = await refreshCourseSectionCompletion(userId, sectionId);
+    if (result.courseCompleted) completedCourses.push(result.courseCompleted);
+  }
+  return completedCourses;
+}
+
+function answerIdList(value) {
+  const raw = Array.isArray(value) ? value : [value];
+  return raw.map(Number).filter((item) => Number.isFinite(item) && item > 0);
+}
+
+function isExactAnswer(selectedIds, correctIds) {
+  if (selectedIds.length !== correctIds.length) return false;
+  const selected = new Set(selectedIds);
+  return correctIds.every((id) => selected.has(id));
+}
+
+function gradeQuizAttempt(quiz, questions, selectedAnswers) {
+  if (quiz.quiz_type === 'survey') {
+    return { score: 0, maxScore: 0, passed: true, weightedScore: 0 };
+  }
+  let score = 0;
+  for (const question of questions) {
+    const answerType = normalizeAnswerType(question.answer_type, quiz.quiz_type);
+    const selectedIds = answerIdList(selectedAnswers?.[question.id]);
+    const correctIds = (question.options || [])
+      .filter((option) => option.isCorrect)
+      .map((option) => Number(option.id));
+    const correct = answerType === 'multiple'
+      ? isExactAnswer(selectedIds, correctIds)
+      : selectedIds.length === 1 && correctIds.includes(selectedIds[0]);
+    if (correct) score += 1;
+  }
+  const maxScore = questions.length;
+  const passed = score >= Number(quiz.pass_score || 0);
+  const weightedScore = quiz.source === 'course'
+    ? (passed ? Number(quiz.reward_points || 0) : 0)
+    : score * Number(quiz.weight || 1);
+  return { score, maxScore, passed, weightedScore };
 }
 
 async function buildCoursePayload(courseSlug, user) {
-  const course = await query('SELECT * FROM courses WHERE slug = $1', [courseSlug]);
+  const course = await query(
+    `SELECT c.*, ucp.completed_at AS user_completed_at
+     FROM courses c
+     LEFT JOIN user_course_progress ucp ON ucp.course_id = c.id AND ucp.user_id = $2
+     WHERE c.slug = $1`,
+    [courseSlug, user.id]
+  );
   if (!course.rows[0]) return null;
   if (user.role !== 'admin' && course.rows[0].is_visible === false) return null;
   const rows = await query(
@@ -357,6 +550,7 @@ async function buildCoursePayload(courseSlug, user) {
                 'title', q.title,
                 'passScore', q.pass_score,
                 'maxScore', q.max_score,
+                'quizType', q.quiz_type,
                 'rewardPoints', q.reward_points,
                 'bestScore', COALESCE(best.best_score, 0),
                 'passed', COALESCE(best.passed, false)
@@ -375,24 +569,36 @@ async function buildCoursePayload(courseSlug, user) {
   );
 
   let previousCompleted = true;
-  const courseCompleted = Boolean(user.course_completed_at);
-  const bypass = Number(user.title_score || 0) > 100;
-  const sections = rows.rows.map((section) => {
-    const completedByQuiz = Number(section.required_count || 0) > 0 && Number(section.passed_count || 0) >= Number(section.required_count || 0);
-    const completed = courseCompleted || section.stored_status === 'completed' || completedByQuiz;
-    const accessible = courseCompleted || bypass || completed || previousCompleted;
-    const status = completed ? 'completed' : accessible ? 'available' : 'locked';
-    previousCompleted = completed;
-    return {
+  const courseCompleted = Boolean(course.rows[0].user_completed_at);
+  const sections = [];
+  for (const section of rows.rows) {
+    const stats = await getSectionRequirementStats(user.id, section.id, true);
+    const completedByRequirements = stats.requiredCount > 0 && stats.passedCount >= stats.requiredCount;
+    const ownCompleted = courseCompleted || section.stored_status === 'completed' || completedByRequirements;
+    const accessible = courseCompleted || previousCompleted;
+    const status = accessible ? (ownCompleted ? 'completed' : 'available') : 'locked';
+    previousCompleted = previousCompleted && ownCompleted;
+    sections.push({
       ...section,
       user_status: status,
       isAccessible: accessible,
-      isCompleted: completed,
-      required_count: Number(section.required_count || 0),
-      passed_count: Number(section.passed_count || 0)
-    };
-  });
-  return { course: course.rows[0], sections, completed: courseCompleted };
+      isCompleted: ownCompleted,
+      required_count: stats.requiredCount,
+      passed_count: stats.passedCount,
+      requirements: stats.requirements
+    });
+  }
+  const computedCourseCompleted = courseCompleted || (sections.length > 0 && sections.every((section) => section.isCompleted));
+  return {
+    course: course.rows[0],
+    sections: sections.map((section) => ({
+      ...section,
+      user_status: computedCourseCompleted ? 'completed' : section.user_status,
+      isAccessible: computedCourseCompleted || section.isAccessible,
+      isCompleted: computedCourseCompleted || section.isCompleted
+    })),
+    completed: computedCourseCompleted
+  };
 }
 
 function normalizeHashtag(value) {
@@ -420,6 +626,101 @@ function formatReviewMessage({ task, user, comment, payload }) {
     '<b>Комментарий:</b>',
     comment || '-'
   ].filter((line) => line !== null).join('\n');
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function reportTag(value) {
+  const cleaned = String(value || '')
+    .trim()
+    .replace(/^@/, '')
+    .replace(/\s+/g, '_')
+    .replace(/[^\p{L}\p{N}_]/gu, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  return cleaned ? `#${cleaned}` : null;
+}
+
+function userReportTags(user) {
+  return [
+    user.telegram_id ? `#idusertg_${user.telegram_id}` : `#idlocal_${user.id}`,
+    user.username ? reportTag(`username_${user.username}`) : null
+  ].filter(Boolean);
+}
+
+function userReportName(user) {
+  const name = [user.first_name, user.last_name].filter(Boolean).join(' ') || user.username || `ID ${user.telegram_id || user.id}`;
+  return `${escapeHtml(name)}${user.username ? ` (@${escapeHtml(user.username)})` : ''}`;
+}
+
+async function sendAcademyReport(text) {
+  const chatId = process.env.ACADEMY_REPORT_CHAT_ID;
+  if (!chatId) return;
+  const result = await sendTelegramMessage(chatId, text);
+  if (result?.ok === false) console.error('Academy report failed', result);
+}
+
+function answerTextForReport(question, answers) {
+  const value = answers?.[question.id];
+  if (question.answer_type === 'text') return String(value || '').trim() || 'нет ответа';
+  const selectedIds = answerIdList(value);
+  return (question.options || [])
+    .filter((option) => selectedIds.includes(Number(option.id)))
+    .map((option) => option.text)
+    .join(', ') || 'не выбран';
+}
+
+async function sendQuizAttemptReport(user, quiz, questions, attempt) {
+  if (quiz.quiz_type !== 'survey' && !attempt.passed) return;
+  const isSurvey = quiz.quiz_type === 'survey';
+  const tags = [
+    ...userReportTags(user),
+    isSurvey ? '#survey' : '#test',
+    reportTag(`quiz_${quiz.slug}`),
+    reportTag(`series_${quiz.category}`),
+    quiz.source === 'course' ? '#course_test' : '#tests_section'
+  ].filter(Boolean).join(' ');
+  const lines = [
+    `<b>${isSurvey ? 'Опрос пройден' : 'Тест пройден'}</b>`,
+    tags,
+    '',
+    `Пользователь: ${userReportName(user)}`,
+    `Материал: ${escapeHtml(quiz.title)}`,
+    `Серия: ${escapeHtml(quiz.category || '-')}`,
+    isSurvey ? null : `Результат: ${attempt.score}/${attempt.max_score}`,
+    ''
+  ].filter((line) => line !== null);
+  if (isSurvey) {
+    lines.push('<b>Ответы:</b>');
+    questions.forEach((question, index) => {
+      lines.push(`${index + 1}. ${escapeHtml(question.text)}`);
+      lines.push(`Ответ: ${escapeHtml(answerTextForReport(question, attempt.answers || {}))}`);
+    });
+  }
+  await sendAcademyReport(lines.join('\n'));
+}
+
+async function sendCourseCompletionReport(user, course) {
+  const tags = [
+    ...userReportTags(user),
+    '#course',
+    '#course_completed',
+    reportTag(`course_${course.slug}`)
+  ].filter(Boolean).join(' ');
+  await sendAcademyReport([
+    '<b>Курс завершен</b>',
+    tags,
+    '',
+    `Пользователь: ${userReportName(user)}`,
+    `Курс: ${escapeHtml(course.title)}`,
+    'Статус: все обязательные этапы курса успешно закрыты.'
+  ].join('\n'));
 }
 
 async function buildSubmissionRewardUrl(submissionId) {
@@ -470,11 +771,13 @@ api.get('/me', requireAuth, async (req, res) => {
   const attempts = await query(
     `SELECT qa.id, qa.score, qa.max_score, qa.weighted_score, qa.passed, qa.created_at,
             q.title,
-            CASE WHEN q.source = 'course' THEN 'Стажерская тропа' ELSE q.category END AS category,
+            CASE WHEN q.source = 'course' THEN COALESCE(c.title, q.category) ELSE q.category END AS category,
             q.difficulty,
             q.source
      FROM quiz_attempts qa
      JOIN quizzes q ON q.id = qa.quiz_id
+     LEFT JOIN course_sections cs ON cs.id = q.section_id
+     LEFT JOIN courses c ON c.id = cs.course_id
      WHERE qa.user_id = $1
      ORDER BY qa.created_at DESC
      LIMIT 50`,
@@ -556,13 +859,8 @@ api.post('/courses/:courseSlug/sections/:sectionSlug/complete', requireAuth, asy
     if (req.user.role !== 'admin' && row.course_is_visible === false) return res.status(404).json({ error: 'Course not found' });
     const allowed = await canAccessSection(req.user, row.id);
     if (!allowed) return res.status(403).json({ error: 'Сначала завершите предыдущий этап курса.' });
-    const required = await query(
-      `SELECT COUNT(*)::int AS total
-       FROM quizzes
-       WHERE section_id = $1 AND source = 'course' AND course_required = true`,
-      [row.id]
-    );
-    if (Number(required.rows[0]?.total || 0) > 0) {
+    const stats = await getSectionRequirementStats(req.user.id, row.id);
+    if (stats.requiredCount > 0) {
       return res.status(400).json({ error: 'Этот этап завершается контрольным тестом.' });
     }
     await query(
@@ -576,11 +874,15 @@ api.post('/courses/:courseSlug/sections/:sectionSlug/complete', requireAuth, asy
     await query(
       `UPDATE users
        SET academy_level = GREATEST(academy_level, $2), updated_at = now()
-       WHERE id = $1`,
+      WHERE id = $1`,
       [req.user.id, row.order_index]
     );
+    const completedCourse = await markCourseCompleteIfReady(req.user.id, row.course_id);
     const updatedUser = (await query('SELECT * FROM users WHERE id = $1', [req.user.id])).rows[0];
     const payload = await buildCoursePayload(req.params.courseSlug, updatedUser);
+    if (completedCourse) {
+      sendCourseCompletionReport(updatedUser, completedCourse).catch((error) => console.error('Academy course report failed', error));
+    }
     res.json(payload);
   } catch (error) {
     next(error);
@@ -589,7 +891,7 @@ api.post('/courses/:courseSlug/sections/:sectionSlug/complete', requireAuth, asy
 
 api.get('/quizzes', requireAuth, async (req, res) => {
   const quizzes = await query(
-    `SELECT q.id, q.slug, q.title, q.category, q.source, q.difficulty, q.weight,
+    `SELECT q.id, q.slug, q.title, q.category, q.source, q.quiz_type, q.difficulty, q.weight,
             q.reward_points, q.pass_score, q.max_score, q.section_id, q.course_required, q.order_index,
             COALESCE(NULLIF(qs.description, ''), q.description, '') AS description,
             COALESCE(qs.description, '') AS series_description,
@@ -649,10 +951,10 @@ api.get('/quizzes/:slug', requireAuth, async (req, res) => {
     if (!allowed) return res.status(403).json({ error: 'Сначала завершите предыдущий этап курса.' });
   }
   const questions = await query(
-    `SELECT qq.id, qq.text, qq.hint, qq.media_url,
-            json_agg(json_build_object('id', qo.id, 'text', qo.text, 'isCorrect', qo.is_correct) ORDER BY qo.order_index) AS options
+    `SELECT qq.id, qq.text, qq.hint, qq.media_url, qq.answer_type, qq.show_hint,
+            COALESCE(json_agg(json_build_object('id', qo.id, 'text', qo.text, 'isCorrect', qo.is_correct) ORDER BY qo.order_index) FILTER (WHERE qo.id IS NOT NULL), '[]') AS options
      FROM quiz_questions qq
-     JOIN quiz_options qo ON qo.question_id = qq.id
+     LEFT JOIN quiz_options qo ON qo.question_id = qq.id
      WHERE qq.quiz_id = $1
      GROUP BY qq.id
      ORDER BY qq.order_index`,
@@ -691,27 +993,24 @@ api.post('/quizzes/:slug/attempt', requireAuth, async (req, res, next) => {
     }
 
     const selected = req.body.answers || {};
-    const optionIds = Object.values(selected).map(Number).filter(Boolean);
-    const correct = optionIds.length
-      ? await query('SELECT id FROM quiz_options WHERE id = ANY($1::int[]) AND is_correct = true', [optionIds])
-      : { rows: [] };
-
-    const score = correct.rows.length;
-    const passed = score >= quiz.pass_score;
-    const weightedScore = quiz.source === 'course'
-      ? (passed ? Number(quiz.reward_points || 0) : 0)
-      : score * quiz.weight;
+    const fullQuiz = await readQuizWithQuestions(quiz.id);
+    const { score, maxScore, passed, weightedScore } = gradeQuizAttempt(quiz, fullQuiz.questions, selected);
 
     const attempt = await query(
       `INSERT INTO quiz_attempts (user_id, quiz_id, score, max_score, weighted_score, passed, answers)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [req.user.id, quiz.id, score, quiz.max_score, weightedScore, passed, selected]
+      [req.user.id, quiz.id, score, maxScore, weightedScore, passed, selected]
     );
-    if (quiz.source === 'course' && passed) {
-      await refreshCourseSectionCompletion(req.user.id, quiz.section_id);
+    let completedCourses = [];
+    if (passed) {
+      completedCourses = await refreshSectionsForPassedQuiz(req.user.id, quiz);
     }
     const user = await recalculateUserScore(req.user.id);
+    sendQuizAttemptReport(user, fullQuiz, fullQuiz.questions, attempt.rows[0]).catch((error) => console.error('Academy quiz report failed', error));
+    for (const completedCourse of completedCourses) {
+      sendCourseCompletionReport(user, completedCourse).catch((error) => console.error('Academy course report failed', error));
+    }
     res.json({ attempt: attempt.rows[0], user: publicUser(user) });
   } catch (error) {
     next(error);
@@ -723,35 +1022,44 @@ api.get('/quiz-attempts/:id', requireAuth, async (req, res) => {
     `SELECT qa.id, qa.score, qa.max_score, qa.weighted_score, qa.passed, qa.created_at, qa.answers,
             q.id AS quiz_id,
             q.title,
-            CASE WHEN q.source = 'course' THEN 'Стажерская тропа' ELSE q.category END AS category,
+            CASE WHEN q.source = 'course' THEN COALESCE(c.title, q.category) ELSE q.category END AS category,
             q.difficulty,
-            q.source
+            q.source,
+            q.quiz_type
      FROM quiz_attempts qa
      JOIN quizzes q ON q.id = qa.quiz_id
+     LEFT JOIN course_sections cs ON cs.id = q.section_id
+     LEFT JOIN courses c ON c.id = cs.course_id
      WHERE qa.id = $1 AND qa.user_id = $2`,
     [req.params.id, req.user.id]
   );
   const attempt = attemptResult.rows[0];
   if (!attempt) return res.status(404).json({ error: 'Attempt not found' });
-  const questions = await query(
-    `SELECT qq.id, qq.text,
-            selected.text AS "selectedOptionText",
-            COALESCE(selected.is_correct, false) AS "isCorrect"
-     FROM quiz_questions qq
-     CROSS JOIN (SELECT $2::jsonb AS answers) attempt_answers
-     LEFT JOIN LATERAL (
-       SELECT qo.text, qo.is_correct
-       FROM quiz_options qo
-       WHERE qo.question_id = qq.id
-         AND qo.id::text = attempt_answers.answers ->> qq.id::text
-       LIMIT 1
-     ) selected ON true
-     WHERE qq.quiz_id = $1
-     ORDER BY qq.order_index`,
-    [attempt.quiz_id, attempt.answers || {}]
-  );
+  const fullQuiz = await readQuizWithQuestions(attempt.quiz_id);
+  const questions = fullQuiz.questions.map((question) => {
+    const value = attempt.answers?.[question.id];
+    if (question.answer_type === 'text') {
+      return {
+        id: question.id,
+        text: question.text,
+        selectedOptionText: String(value || '').trim() || 'нет ответа',
+        isCorrect: true
+      };
+    }
+    const selectedIds = answerIdList(value);
+    const selectedOptions = (question.options || []).filter((option) => selectedIds.includes(Number(option.id)));
+    const correctIds = (question.options || []).filter((option) => option.isCorrect).map((option) => Number(option.id));
+    return {
+      id: question.id,
+      text: question.text,
+      selectedOptionText: selectedOptions.map((option) => option.text).join(', ') || 'не выбран',
+      isCorrect: attempt.quiz_type === 'survey' || (question.answer_type === 'multiple'
+        ? isExactAnswer(selectedIds, correctIds)
+        : selectedIds.length === 1 && correctIds.includes(selectedIds[0]))
+    };
+  });
   delete attempt.answers;
-  res.json({ attempt, questions: questions.rows });
+  res.json({ attempt, questions });
 });
 
 api.get('/leaderboard', requireAuth, async (req, res) => {
@@ -896,10 +1204,56 @@ async function readAdminCourses() {
     if (!lessonsBySection.has(lesson.section_id)) lessonsBySection.set(lesson.section_id, []);
     lessonsBySection.get(lesson.section_id).push(lesson);
   }
+  const requirements = await query(
+    `SELECT csr.*, q.title AS quiz_title, q.slug AS quiz_slug, qs.name AS series_name
+     FROM course_section_requirements csr
+     LEFT JOIN quizzes q ON q.id = csr.quiz_id
+     LEFT JOIN quiz_series qs ON qs.id = csr.series_id
+     ORDER BY csr.order_index, csr.id`
+  );
+  const requirementsBySection = new Map();
+  for (const requirement of requirements.rows) {
+    if (!requirementsBySection.has(requirement.section_id)) requirementsBySection.set(requirement.section_id, []);
+    requirementsBySection.get(requirement.section_id).push(requirement);
+  }
+  const courseQuizzes = await query(
+    `SELECT q.*
+     FROM quizzes q
+     JOIN course_sections cs ON cs.id = q.section_id
+     JOIN courses c ON c.id = cs.course_id
+     WHERE q.source = 'course'
+     ORDER BY c.order_index, cs.order_index, q.order_index, q.id`
+  );
+  const courseQuizIds = courseQuizzes.rows.map((quiz) => quiz.id);
+  const courseQuestions = courseQuizIds.length ? await query(
+    `SELECT qq.id, qq.quiz_id, qq.text, qq.hint, qq.media_url, qq.answer_type, qq.show_hint,
+            COALESCE(json_agg(json_build_object('id', qo.id, 'text', qo.text, 'isCorrect', qo.is_correct) ORDER BY qo.order_index) FILTER (WHERE qo.id IS NOT NULL), '[]') AS options
+     FROM quiz_questions qq
+     LEFT JOIN quiz_options qo ON qo.question_id = qq.id
+     WHERE qq.quiz_id = ANY($1::int[])
+     GROUP BY qq.id
+     ORDER BY qq.order_index`,
+    [courseQuizIds]
+  ) : { rows: [] };
+  const questionsByQuiz = new Map();
+  for (const question of courseQuestions.rows) {
+    if (!questionsByQuiz.has(question.quiz_id)) questionsByQuiz.set(question.quiz_id, []);
+    questionsByQuiz.get(question.quiz_id).push(question);
+  }
+  const quizzesBySection = new Map();
+  for (const quiz of courseQuizzes.rows) {
+    if (!quizzesBySection.has(quiz.section_id)) quizzesBySection.set(quiz.section_id, []);
+    quizzesBySection.get(quiz.section_id).push({ ...quiz, questions: questionsByQuiz.get(quiz.id) || [] });
+  }
   const sectionsByCourse = new Map();
   for (const section of sections.rows) {
     if (!sectionsByCourse.has(section.course_id)) sectionsByCourse.set(section.course_id, []);
-    sectionsByCourse.get(section.course_id).push({ ...section, lessons: lessonsBySection.get(section.id) || [] });
+    sectionsByCourse.get(section.course_id).push({
+      ...section,
+      lessons: lessonsBySection.get(section.id) || [],
+      requirements: requirementsBySection.get(section.id) || [],
+      courseQuizzes: quizzesBySection.get(section.id) || []
+    });
   }
   return courses.rows.map((course) => ({ ...course, sections: sectionsByCourse.get(course.id) || [] }));
 }
@@ -908,7 +1262,7 @@ api.get('/admin/courses', requireAuth, requireAdmin, async (_req, res) => {
   res.json({ courses: await readAdminCourses() });
 });
 
-async function saveCourseSections(client, courseId, sections = []) {
+async function saveCourseSections(client, courseId, courseTitle, sections = []) {
   for (const [sectionIndex, section] of sections.entries()) {
     if (!section.title) continue;
     const orderIndex = sectionIndex + 1;
@@ -958,6 +1312,97 @@ async function saveCourseSections(client, courseId, sections = []) {
         );
       }
     }
+
+    if (Array.isArray(section.requirements)) {
+      await client.query('DELETE FROM course_section_requirements WHERE section_id = $1', [sectionId]);
+      for (const [requirementIndex, requirement] of section.requirements.entries()) {
+        const requirementType = requirement.type === 'series' || requirement.requirement_type === 'series' ? 'series' : 'quiz';
+        const quizId = Number(requirement.quizId || requirement.quiz_id || 0) || null;
+        const seriesId = Number(requirement.seriesId || requirement.series_id || 0) || null;
+        if (requirementType === 'quiz' && !quizId) continue;
+        if (requirementType === 'series' && !seriesId) continue;
+        await client.query(
+          `INSERT INTO course_section_requirements (section_id, requirement_type, quiz_id, series_id, order_index)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [sectionId, requirementType, requirementType === 'quiz' ? quizId : null, requirementType === 'series' ? seriesId : null, requirementIndex + 1]
+        );
+      }
+    }
+
+    if (Array.isArray(section.courseQuizzes)) {
+      const keepQuizIds = [];
+      for (const [quizIndex, quiz] of section.courseQuizzes.entries()) {
+        if (!quiz.title || !Array.isArray(quiz.questions) || !quiz.questions.length) continue;
+        const quizType = normalizeQuizType(quiz.quizType || quiz.quiz_type);
+        const passScore = quizType === 'survey' ? 0 : Number(quiz.passScore || quiz.pass_score || 1);
+        const maxScore = quizType === 'survey' ? 0 : quiz.questions.length;
+        let quizId = quiz.id ? Number(quiz.id) : null;
+        if (quizId) {
+          const updated = await client.query(
+            `UPDATE quizzes
+             SET title = $1,
+                 category = $2,
+                 quiz_type = $3,
+                 difficulty = $4,
+                 weight = $5,
+                 reward_points = $6,
+                 pass_score = $7,
+                 max_score = $8,
+                 section_id = $9,
+                 course_required = true,
+                 order_index = $10
+             WHERE id = $11 AND source = 'course'
+             RETURNING id`,
+            [
+              quiz.title,
+              courseTitle,
+              quizType,
+              quiz.difficulty || 'course',
+              Number(quiz.weight || 1),
+              Number(quiz.rewardPoints || quiz.reward_points || 0),
+              passScore,
+              maxScore,
+              sectionId,
+              quizIndex + 1,
+              quizId
+            ]
+          );
+          quizId = updated.rows[0]?.id || null;
+        }
+        if (!quizId) {
+          const slug = await createUniqueSlug(client, 'quizzes', `${section.title}-${quiz.title}`);
+          const created = await client.query(
+            `INSERT INTO quizzes (slug, title, category, source, quiz_type, difficulty, weight, reward_points, pass_score, max_score, description, section_id, course_required, is_visible, order_index)
+             VALUES ($1, $2, $3, 'course', $4, $5, $6, $7, $8, $9, '', $10, true, true, $11)
+             RETURNING id`,
+            [
+              slug,
+              quiz.title,
+              courseTitle,
+              quizType,
+              quiz.difficulty || 'course',
+              Number(quiz.weight || 1),
+              Number(quiz.rewardPoints || quiz.reward_points || 0),
+              passScore,
+              maxScore,
+              sectionId,
+              quizIndex + 1
+            ]
+          );
+          quizId = created.rows[0].id;
+        }
+        keepQuizIds.push(quizId);
+        await replaceQuizQuestions(client, quizId, quiz.questions, quizType);
+      }
+      if (keepQuizIds.length) {
+        await client.query(
+          "DELETE FROM quizzes WHERE source = 'course' AND section_id = $1 AND id <> ALL($2::int[])",
+          [sectionId, keepQuizIds]
+        );
+      } else {
+        await client.query("DELETE FROM quizzes WHERE source = 'course' AND section_id = $1", [sectionId]);
+      }
+    }
   }
 }
 
@@ -981,7 +1426,7 @@ api.post('/admin/courses', requireAuth, requireAdmin, async (req, res, next) => 
           Number(order.rows[0]?.next_order || 1)
         ]
       );
-      await saveCourseSections(client, created.rows[0].id, body.sections || []);
+      await saveCourseSections(client, created.rows[0].id, body.title, body.sections || []);
       return created.rows[0];
     });
     res.status(201).json({ course });
@@ -1013,7 +1458,7 @@ api.put('/admin/courses/:id', requireAuth, requireAdmin, async (req, res, next) 
         ]
       );
       if (!updated.rows[0]) return null;
-      await saveCourseSections(client, updated.rows[0].id, body.sections || []);
+      await saveCourseSections(client, updated.rows[0].id, body.title, body.sections || []);
       return updated.rows[0];
     });
     if (!course) return res.status(404).json({ error: 'Course not found' });
@@ -1228,15 +1673,17 @@ api.delete('/admin/tasks/:id', requireAuth, requireAdmin, async (req, res, next)
   }
 });
 
-async function replaceQuizQuestions(client, quizId, questions) {
+async function replaceQuizQuestions(client, quizId, questions, quizType = 'testing') {
   await client.query('DELETE FROM quiz_questions WHERE quiz_id = $1', [quizId]);
   for (const [questionIndex, question] of questions.entries()) {
+    const answerType = normalizeAnswerType(question.answerType || question.answer_type, quizType);
     const questionRow = await client.query(
-      `INSERT INTO quiz_questions (quiz_id, order_index, text, media_url, hint)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO quiz_questions (quiz_id, order_index, text, media_url, hint, answer_type, show_hint)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id`,
-      [quizId, questionIndex + 1, question.text, question.mediaUrl || null, question.hint || '']
+      [quizId, questionIndex + 1, question.text, question.mediaUrl || null, question.hint || '', answerType, question.showHint !== false]
     );
+    if (answerType === 'text') continue;
     for (const [optionIndex, option] of (question.options || []).entries()) {
       await client.query(
         `INSERT INTO quiz_options (question_id, order_index, text, is_correct)
@@ -1264,7 +1711,7 @@ async function upsertQuizSeries(client, name, description, isVisible) {
 
 async function readQuizWithQuestions(quizId) {
   const quiz = await query(
-    `SELECT q.id, q.slug, q.title, q.category, q.source, q.difficulty, q.weight,
+    `SELECT q.id, q.slug, q.title, q.category, q.source, q.quiz_type, q.difficulty, q.weight,
             q.reward_points, q.pass_score, q.max_score, q.section_id, q.course_required, q.is_visible, q.order_index,
             COALESCE(NULLIF(qs.description, ''), q.description, '') AS description,
             COALESCE(qs.description, '') AS series_description,
@@ -1278,7 +1725,7 @@ async function readQuizWithQuestions(quizId) {
   );
   if (!quiz.rows[0]) return null;
   const questions = await query(
-    `SELECT qq.id, qq.text, qq.hint, qq.media_url,
+    `SELECT qq.id, qq.text, qq.hint, qq.media_url, qq.answer_type, qq.show_hint,
             COALESCE(json_agg(json_build_object('id', qo.id, 'text', qo.text, 'isCorrect', qo.is_correct) ORDER BY qo.order_index) FILTER (WHERE qo.id IS NOT NULL), '[]') AS options
      FROM quiz_questions qq
      LEFT JOIN quiz_options qo ON qo.question_id = qq.id
@@ -1367,7 +1814,7 @@ api.delete('/admin/quiz-series/:name', requireAuth, requireAdmin, async (req, re
 
 api.get('/admin/quizzes', requireAuth, requireAdmin, async (_req, res) => {
   const quizzes = await query(
-    `SELECT q.id, q.slug, q.title, q.category, q.source, q.difficulty, q.weight,
+    `SELECT q.id, q.slug, q.title, q.category, q.source, q.quiz_type, q.difficulty, q.weight,
             q.reward_points, q.pass_score, q.max_score, q.section_id, q.course_required, q.is_visible, q.order_index,
             COALESCE(NULLIF(qs.description, ''), q.description, '') AS description,
             COALESCE(qs.description, '') AS series_description,
@@ -1410,23 +1857,25 @@ api.post('/admin/quizzes', requireAuth, requireAdmin, async (req, res, next) => 
     if (!body.title || !body.category || !body.questions?.length) {
       return res.status(400).json({ error: 'Quiz series, title and questions are required' });
     }
+    const quizType = normalizeQuizType(body.quizType || body.quiz_type);
     const quiz = await withTransaction(async (client) => {
       await upsertQuizSeries(client, body.category, body.description);
       const slug = body.slug || await createUniqueSlug(client, 'quizzes', `${body.category}-${body.difficulty || 'easy'}-${body.title}`);
       const result = await client.query(
-        `INSERT INTO quizzes (slug, title, category, source, difficulty, weight, reward_points, pass_score, max_score, description, section_id, course_required, is_visible, order_index)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        `INSERT INTO quizzes (slug, title, category, source, quiz_type, difficulty, weight, reward_points, pass_score, max_score, description, section_id, course_required, is_visible, order_index)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
          RETURNING *`,
         [
           slug,
           body.title,
           body.category,
           'tests',
+          quizType,
           body.difficulty || 'easy',
           Number(body.weight || 1),
           0,
-          1,
-          body.questions.length,
+          quizType === 'survey' ? 0 : 1,
+          quizType === 'survey' ? 0 : body.questions.length,
           '',
           null,
           false,
@@ -1434,7 +1883,7 @@ api.post('/admin/quizzes', requireAuth, requireAdmin, async (req, res, next) => 
           resolveQuizOrderIndex(body)
         ]
       );
-      await replaceQuizQuestions(client, result.rows[0].id, body.questions);
+      await replaceQuizQuestions(client, result.rows[0].id, body.questions, quizType);
       return result.rows[0];
     });
     res.status(201).json({ quiz: await readQuizWithQuestions(quiz.id) });
@@ -1446,6 +1895,7 @@ api.post('/admin/quizzes', requireAuth, requireAdmin, async (req, res, next) => 
 api.put('/admin/quizzes/:id', requireAuth, requireAdmin, async (req, res, next) => {
   try {
     const body = req.body || {};
+    const quizType = normalizeQuizType(body.quizType || body.quiz_type);
     const quiz = await withTransaction(async (client) => {
       if (body.category) await upsertQuizSeries(client, body.category, body.description);
       const result = await client.query(
@@ -1453,27 +1903,29 @@ api.put('/admin/quizzes/:id', requireAuth, requireAdmin, async (req, res, next) 
          SET title = $1,
              category = $2,
              source = $3,
-             difficulty = $4,
-             weight = $5,
-             reward_points = $6,
-             pass_score = $7,
-             max_score = $8,
-             description = $9,
-             section_id = $10,
-             course_required = $11,
-             is_visible = CASE WHEN $12 THEN $13 ELSE is_visible END,
-             order_index = $14
-         WHERE id = $15 AND source = 'tests'
+             quiz_type = $4,
+             difficulty = $5,
+             weight = $6,
+             reward_points = $7,
+             pass_score = $8,
+             max_score = $9,
+             description = $10,
+             section_id = $11,
+             course_required = $12,
+             is_visible = CASE WHEN $13 THEN $14 ELSE is_visible END,
+             order_index = $15
+         WHERE id = $16 AND source = 'tests'
          RETURNING *`,
         [
           body.title,
           body.category,
           'tests',
+          quizType,
           body.difficulty || 'easy',
           Number(body.weight || 1),
           0,
-          1,
-          Number(body.questions?.length || body.maxScore || 0),
+          quizType === 'survey' ? 0 : 1,
+          quizType === 'survey' ? 0 : Number(body.questions?.length || body.maxScore || 0),
           '',
           null,
           false,
@@ -1484,7 +1936,7 @@ api.put('/admin/quizzes/:id', requireAuth, requireAdmin, async (req, res, next) 
         ]
       );
       if (!result.rows[0]) return null;
-      if (Array.isArray(body.questions)) await replaceQuizQuestions(client, result.rows[0].id, body.questions);
+      if (Array.isArray(body.questions)) await replaceQuizQuestions(client, result.rows[0].id, body.questions, quizType);
       return result.rows[0];
     });
     if (!quiz) return res.status(404).json({ error: 'Quiz not found' });
