@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS courses (
   title TEXT NOT NULL,
   difficulty TEXT NOT NULL,
   description TEXT NOT NULL DEFAULT '',
+  is_visible BOOLEAN NOT NULL DEFAULT true,
   order_index INTEGER NOT NULL DEFAULT 0
 );
 
@@ -169,6 +170,7 @@ CREATE INDEX IF NOT EXISTS idx_task_submissions_user ON task_submissions(user_id
 CREATE INDEX IF NOT EXISTS idx_users_score ON users(title_score DESC);
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS course_completed_at TIMESTAMPTZ;
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS is_visible BOOLEAN NOT NULL DEFAULT true;
 ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS reward_points INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS section_id INTEGER REFERENCES course_sections(id) ON DELETE SET NULL;
 ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS course_required BOOLEAN NOT NULL DEFAULT false;

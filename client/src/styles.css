@@ -258,6 +258,52 @@ button:disabled {
   font-weight: 800;
 }
 
+.course-card {
+  position: relative;
+  align-items: stretch;
+}
+
+.course-card-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.course-card-main > div {
+  min-width: 0;
+}
+
+.course-card-admin-controls {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.course-card.is-hidden {
+  opacity: 0.72;
+}
+
+.course-delete-button {
+  width: 38px;
+  min-width: 38px;
+  height: 38px;
+  min-height: 38px;
+  display: grid;
+  place-items: center;
+  border-color: rgba(217, 93, 57, 0.26);
+  background: rgba(217, 93, 57, 0.12);
+  color: var(--coral);
+}
+
 .stat {
   flex-direction: column;
   align-items: flex-start;

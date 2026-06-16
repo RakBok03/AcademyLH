@@ -805,7 +805,20 @@ function ProfilePage({ me, setPage, openCourseSection, openAttempt }) {
   );
 }
 
-function CoursesPage({ courses, selectedCourse, activeSectionSlug, setActiveSectionSlug, openCourse, completeSection, openQuiz, setPage, adminMode, saveCourse }) {
+function CoursesPage({
+  courses,
+  selectedCourse,
+  activeSectionSlug,
+  setActiveSectionSlug,
+  openCourse,
+  completeSection,
+  openQuiz,
+  setPage,
+  adminMode,
+  saveCourse,
+  deleteCourse,
+  toggleCourseVisibility
+}) {
   const activeSection = selectedCourse?.sections.find((section) => section.slug === activeSectionSlug);
   const [courseEditorMode, setCourseEditorMode] = useState(null);
 
@@ -842,14 +855,37 @@ function CoursesPage({ courses, selectedCourse, activeSectionSlug, setActiveSect
       )}
       <section className="course-list">
         {courses.map((course) => (
-          <button className={cx('course-card', selectedCourse?.course.slug === course.slug && 'selected')} key={course.slug} onClick={() => openCourse(course.slug)}>
-            <div>
-              <span>{course.difficulty}</span>
-              <h2>{course.title}</h2>
-              <p>{course.description}</p>
-            </div>
-            <BookOpen size={24} />
-          </button>
+          <div className={cx('course-card', selectedCourse?.course.slug === course.slug && 'selected', course.is_visible === false && 'is-hidden')} key={course.slug}>
+            <button type="button" className="course-card-main" onClick={() => openCourse(course.slug)}>
+              <div>
+                <span>{course.difficulty}</span>
+                <h2>{course.title}</h2>
+                <p>{course.description}</p>
+              </div>
+              <BookOpen size={24} />
+            </button>
+            {adminMode && (
+              <div className="course-card-admin-controls">
+                <VisibilityToggle
+                  enabled={course.is_visible !== false}
+                  onChange={(isVisible) => toggleCourseVisibility(course.id, isVisible)}
+                />
+                <button
+                  type="button"
+                  className="icon-button course-delete-button"
+                  aria-label="Удалить курс"
+                  title="Удалить курс"
+                  onClick={() => {
+                    if (confirm(`Удалить курс «${course.title}» вместе с разделами и курсовыми тестами?`)) {
+                      deleteCourse(course.id);
+                    }
+                  }}
+                >
+                  <Trash2 size={17} />
+                </button>
+              </div>
+            )}
+          </div>
         ))}
       </section>
       {adminMode && courseEditorMode && (
@@ -948,6 +984,7 @@ function CourseAdminTools({ selectedCourse, saveCourse, onClose }) {
           <label>Название курса<input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} required /></label>
           <label>Уровень сложности<input value={draft.difficulty} onChange={(event) => setDraft({ ...draft, difficulty: event.target.value })} /></label>
         </div>
+        <VisibilityToggle enabled={draft.isVisible !== false} onChange={(isVisible) => setDraft({ ...draft, isVisible })} />
         <RichTextInput label="Описание курса" rows={3} value={draft.description} onChange={(description) => setDraft({ ...draft, description })} />
         <div className="builder-stack">
           {draft.sections.map((section, sectionIndex) => (
@@ -2278,6 +2315,7 @@ function defaultCourseDraft() {
     title: '',
     difficulty: 'начальный',
     description: '',
+    isVisible: true,
     sections: [defaultCourseSection()]
   };
 }
@@ -2294,6 +2332,7 @@ function courseToDraft(selectedCourse) {
     title: selectedCourse.course.title || '',
     difficulty: selectedCourse.course.difficulty || 'начальный',
     description: selectedCourse.course.description || '',
+    isVisible: selectedCourse.course.is_visible !== false,
     sections: (selectedCourse.sections || []).map((section) => ({
       id: section.id,
       title: section.title || '',
@@ -2312,6 +2351,7 @@ function courseDraftToPayload(draft) {
     title: draft.title,
     difficulty: draft.difficulty,
     description: draft.description,
+    isVisible: draft.isVisible !== false,
     sections: draft.sections.map((section) => ({
       id: section.id,
       title: section.title,
@@ -2567,6 +2607,28 @@ export function App() {
     if (selectedCourse?.course?.slug) await loadCourse(selectedCourse.course.slug, activeSectionSlug);
   }
 
+  async function toggleCourseVisibility(id, isVisible) {
+    await apiFetch(`/admin/courses/${id}/visibility`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isVisible })
+    });
+    await loadAdmin();
+    await loadAll();
+    if (selectedCourse?.course?.id === id) {
+      await loadCourse(selectedCourse.course.slug, activeSectionSlug);
+    }
+  }
+
+  async function deleteCourse(id) {
+    await apiFetch(`/admin/courses/${id}`, { method: 'DELETE' });
+    await loadAdmin();
+    await loadAll();
+    if (selectedCourse?.course?.id === id) {
+      setSelectedCourse(null);
+      setActiveSectionSlug(null);
+    }
+  }
+
   if (boot.loading) return <div className="splash"><LayoutDashboard size={34} /><span>AcademyLH</span></div>;
   if (boot.error) return <div className="splash error"><Lock size={34} /><span>{boot.error}</span></div>;
   if (quizState) return <QuizPage quizState={quizState} submitQuiz={submitQuiz} close={() => setQuizState(null)} />;
@@ -2577,7 +2639,7 @@ export function App() {
     <div className="app-shell">
       {page === 'home' && <HomePage data={home} setPage={setPage} adminMode={adminMode} setAdminMode={setAdminMode} />}
       {page === 'profile' && <ProfilePage me={me} setPage={setPage} openCourseSection={openCourseSection} openAttempt={openAttempt} />}
-      {page === 'courses' && <CoursesPage courses={courses} selectedCourse={selectedCourse} activeSectionSlug={activeSectionSlug} setActiveSectionSlug={setActiveSectionSlug} openCourse={openCourse} completeSection={completeSection} openQuiz={openQuiz} setPage={setPage} adminMode={home.user.role === 'admin' && adminMode} saveCourse={saveCourse} />}
+      {page === 'courses' && <CoursesPage courses={courses} selectedCourse={selectedCourse} activeSectionSlug={activeSectionSlug} setActiveSectionSlug={setActiveSectionSlug} openCourse={openCourse} completeSection={completeSection} openQuiz={openQuiz} setPage={setPage} adminMode={home.user.role === 'admin' && adminMode} saveCourse={saveCourse} deleteCourse={deleteCourse} toggleCourseVisibility={toggleCourseVisibility} />}
       {page === 'tests' && <TestsPage quizzes={quizzes} openQuiz={openQuiz} openContentPage={openContentPage} openSeriesDescription={openSeriesDescription} setPage={setPage} />}
       {page === 'leaderboard' && <LeaderboardPage leaderboard={leaderboard} setPage={setPage} />}
       {page === 'tasks' && <TasksPage tasks={tasks} submitTask={submitTask} loadMenu={loadMenu} loadMenuFilters={() => apiFetch('/tasks/dish-photo/menu-filters')} setPage={setPage} />}

@@ -321,6 +321,7 @@ async function refreshCourseSectionCompletion(userId, sectionId) {
 async function buildCoursePayload(courseSlug, user) {
   const course = await query('SELECT * FROM courses WHERE slug = $1', [courseSlug]);
   if (!course.rows[0]) return null;
+  if (user.role !== 'admin' && course.rows[0].is_visible === false) return null;
   const rows = await query(
     `SELECT cs.*,
             COALESCE(up.status, 'locked') AS stored_status,
@@ -493,7 +494,12 @@ api.get('/me', requireAuth, async (req, res) => {
 });
 
 api.get('/home', requireAuth, async (req, res) => {
-  const courses = await query('SELECT * FROM courses ORDER BY order_index, id');
+  const courses = await query(
+    `SELECT * FROM courses
+     WHERE $1::boolean = true OR is_visible = true
+     ORDER BY order_index, id`,
+    [req.user.role === 'admin']
+  );
   const tasks = await query('SELECT * FROM tasks WHERE active = true ORDER BY order_index');
   const top = await query(
     `SELECT id, username, first_name, last_name, photo_url, title_score, title_text
@@ -520,8 +526,13 @@ api.get('/home', requireAuth, async (req, res) => {
   });
 });
 
-api.get('/courses', requireAuth, async (_req, res) => {
-  const courses = await query('SELECT * FROM courses ORDER BY order_index, id');
+api.get('/courses', requireAuth, async (req, res) => {
+  const courses = await query(
+    `SELECT * FROM courses
+     WHERE $1::boolean = true OR is_visible = true
+     ORDER BY order_index, id`,
+    [req.user.role === 'admin']
+  );
   res.json({ courses: courses.rows });
 });
 
@@ -534,7 +545,7 @@ api.get('/courses/:slug', requireAuth, async (req, res) => {
 api.post('/courses/:courseSlug/sections/:sectionSlug/complete', requireAuth, async (req, res, next) => {
   try {
     const section = await query(
-      `SELECT cs.*
+      `SELECT cs.*, c.is_visible AS course_is_visible
        FROM course_sections cs
        JOIN courses c ON c.id = cs.course_id
        WHERE c.slug = $1 AND cs.slug = $2`,
@@ -542,6 +553,7 @@ api.post('/courses/:courseSlug/sections/:sectionSlug/complete', requireAuth, asy
     );
     const row = section.rows[0];
     if (!row) return res.status(404).json({ error: 'Section not found' });
+    if (req.user.role !== 'admin' && row.course_is_visible === false) return res.status(404).json({ error: 'Course not found' });
     const allowed = await canAccessSection(req.user, row.id);
     if (!allowed) return res.status(403).json({ error: 'Сначала завершите предыдущий этап курса.' });
     const required = await query(
@@ -612,9 +624,12 @@ api.get('/quizzes', requireAuth, async (req, res) => {
 
 api.get('/quizzes/:slug', requireAuth, async (req, res) => {
   const quiz = await query(
-    `SELECT q.*, COALESCE(qs.is_visible, true) AS series_is_visible
+    `SELECT q.*, COALESCE(qs.is_visible, true) AS series_is_visible,
+            COALESCE(c.is_visible, true) AS course_is_visible
      FROM quizzes q
      LEFT JOIN quiz_series qs ON qs.name = q.category
+     LEFT JOIN course_sections cs ON cs.id = q.section_id
+     LEFT JOIN courses c ON c.id = cs.course_id
      WHERE q.slug = $1`,
     [req.params.slug]
   );
@@ -627,6 +642,9 @@ api.get('/quizzes/:slug', requireAuth, async (req, res) => {
     return res.status(404).json({ error: 'Quiz not found' });
   }
   if (quiz.rows[0].source === 'course') {
+    if (req.user.role !== 'admin' && quiz.rows[0].course_is_visible === false) {
+      return res.status(404).json({ error: 'Quiz not found' });
+    }
     const allowed = await canAccessSection(req.user, quiz.rows[0].section_id);
     if (!allowed) return res.status(403).json({ error: 'Сначала завершите предыдущий этап курса.' });
   }
@@ -646,9 +664,12 @@ api.get('/quizzes/:slug', requireAuth, async (req, res) => {
 api.post('/quizzes/:slug/attempt', requireAuth, async (req, res, next) => {
   try {
     const quizResult = await query(
-      `SELECT q.*, COALESCE(qs.is_visible, true) AS series_is_visible
+      `SELECT q.*, COALESCE(qs.is_visible, true) AS series_is_visible,
+              COALESCE(c.is_visible, true) AS course_is_visible
        FROM quizzes q
        LEFT JOIN quiz_series qs ON qs.name = q.category
+       LEFT JOIN course_sections cs ON cs.id = q.section_id
+       LEFT JOIN courses c ON c.id = cs.course_id
        WHERE q.slug = $1`,
       [req.params.slug]
     );
@@ -662,6 +683,9 @@ api.post('/quizzes/:slug/attempt', requireAuth, async (req, res, next) => {
       return res.status(404).json({ error: 'Quiz not found' });
     }
     if (quiz.source === 'course') {
+      if (req.user.role !== 'admin' && quiz.course_is_visible === false) {
+        return res.status(404).json({ error: 'Quiz not found' });
+      }
       const allowed = await canAccessSection(req.user, quiz.section_id);
       if (!allowed) return res.status(403).json({ error: 'Сначала завершите предыдущий этап курса.' });
     }
@@ -945,10 +969,17 @@ api.post('/admin/courses', requireAuth, requireAdmin, async (req, res, next) => 
       const slug = await createUniqueSlug(client, 'courses', body.title);
       const order = await client.query('SELECT COALESCE(MAX(order_index), 0) + 1 AS next_order FROM courses');
       const created = await client.query(
-        `INSERT INTO courses (slug, title, difficulty, description, order_index)
-         VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO courses (slug, title, difficulty, description, is_visible, order_index)
+         VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING *`,
-        [slug, body.title, body.difficulty || 'начальный', body.description || '', Number(order.rows[0]?.next_order || 1)]
+        [
+          slug,
+          body.title,
+          body.difficulty || 'начальный',
+          body.description || '',
+          readVisibility(body, true),
+          Number(order.rows[0]?.next_order || 1)
+        ]
       );
       await saveCourseSections(client, created.rows[0].id, body.sections || []);
       return created.rows[0];
@@ -966,10 +997,20 @@ api.put('/admin/courses/:id', requireAuth, requireAdmin, async (req, res, next) 
     const course = await withTransaction(async (client) => {
       const updated = await client.query(
         `UPDATE courses
-         SET title = $1, difficulty = $2, description = $3
-         WHERE id = $4
+         SET title = $1,
+             difficulty = $2,
+             description = $3,
+             is_visible = CASE WHEN $4::boolean THEN $5::boolean ELSE is_visible END
+         WHERE id = $6
          RETURNING *`,
-        [body.title, body.difficulty || 'начальный', body.description || '', req.params.id]
+        [
+          body.title,
+          body.difficulty || 'начальный',
+          body.description || '',
+          hasVisibility(body),
+          readVisibility(body, true),
+          req.params.id
+        ]
       );
       if (!updated.rows[0]) return null;
       await saveCourseSections(client, updated.rows[0].id, body.sections || []);
@@ -977,6 +1018,57 @@ api.put('/admin/courses/:id', requireAuth, requireAdmin, async (req, res, next) 
     });
     if (!course) return res.status(404).json({ error: 'Course not found' });
     res.json({ course });
+  } catch (error) {
+    next(error);
+  }
+});
+
+api.patch('/admin/courses/:id/visibility', requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const isVisible = readVisibility(req.body, true);
+    const updated = await query(
+      `UPDATE courses
+       SET is_visible = $1
+       WHERE id = $2
+       RETURNING *`,
+      [isVisible, req.params.id]
+    );
+    if (!updated.rows[0]) return res.status(404).json({ error: 'Course not found' });
+    res.json({ course: updated.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+api.delete('/admin/courses/:id', requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const deleted = await withTransaction(async (client) => {
+      const sections = await client.query('SELECT id FROM course_sections WHERE course_id = $1', [req.params.id]);
+      const sectionIds = sections.rows.map((row) => row.id);
+      let affectedUserIds = [];
+      if (sectionIds.length) {
+        const quizzes = await client.query(
+          "SELECT id FROM quizzes WHERE source = 'course' AND section_id = ANY($1::int[])",
+          [sectionIds]
+        );
+        const quizIds = quizzes.rows.map((row) => row.id);
+        if (quizIds.length) {
+          const affected = await client.query(
+            'SELECT DISTINCT user_id FROM quiz_attempts WHERE quiz_id = ANY($1::int[])',
+            [quizIds]
+          );
+          affectedUserIds = affected.rows.map((row) => row.user_id);
+          await client.query('DELETE FROM quizzes WHERE id = ANY($1::int[])', [quizIds]);
+        }
+      }
+      const result = await client.query('DELETE FROM courses WHERE id = $1 RETURNING id', [req.params.id]);
+      return result.rows[0] ? { course: result.rows[0], affectedUserIds } : null;
+    });
+    if (!deleted) return res.status(404).json({ error: 'Course not found' });
+    for (const userId of deleted.affectedUserIds) {
+      await recalculateUserScore(userId);
+    }
+    res.json({ ok: true });
   } catch (error) {
     next(error);
   }
