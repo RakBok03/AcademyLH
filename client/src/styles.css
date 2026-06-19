@@ -281,6 +281,12 @@ button:disabled {
   min-width: 0;
 }
 
+.course-card-main > svg {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+}
+
 .course-card-admin-controls {
   flex: 0 0 auto;
   display: flex;
