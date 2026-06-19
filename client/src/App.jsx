@@ -595,6 +595,19 @@ function formatName(user) {
   return [user.firstName || user.first_name, user.lastName || user.last_name].filter(Boolean).join(' ') || user.username || 'Пользователь';
 }
 
+function formatDateTime(value) {
+  if (!value) return 'нет даты';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'нет даты';
+  return date.toLocaleString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
 function Avatar({ user, size = 'md' }) {
   const photo = user?.photoUrl || user?.photo_url;
   const [imageFailed, setImageFailed] = useState(false);
@@ -1081,25 +1094,16 @@ function CourseAdminTools({ selectedCourse, saveCourse, availableQuizzes = [], q
                   <strong>Требования для прохождения раздела</strong>
                 </div>
                 <div className="builder-stack">
+                  {section.requirements.length === 0 && <p className="field-note">Требований пока нет. Добавьте тест или серию, если следующий этап должен открываться после проверки знаний.</p>}
                   {section.requirements.map((requirement, requirementIndex) => (
-                    <div className="requirement-row" key={requirementIndex}>
-                      <select value={requirement.type} onChange={(event) => updateRequirement(sectionIndex, requirementIndex, { type: event.target.value, quizId: '', seriesId: '' })}>
-                        <option value="quiz">Тест</option>
-                        <option value="series">Серия</option>
-                      </select>
-                      {requirement.type === 'series' ? (
-                        <select value={requirement.seriesId || ''} onChange={(event) => updateRequirement(sectionIndex, requirementIndex, { seriesId: event.target.value })}>
-                          <option value="">Выберите серию</option>
-                          {quizSeriesRows.map((series) => <option key={series.id || series.name} value={series.id}>{series.name}</option>)}
-                        </select>
-                      ) : (
-                        <select value={requirement.quizId || ''} onChange={(event) => updateRequirement(sectionIndex, requirementIndex, { quizId: event.target.value })}>
-                          <option value="">Выберите тест</option>
-                          {availableQuizzes.map((quiz) => <option key={quiz.id} value={quiz.id}>{quiz.category}: {quiz.title}</option>)}
-                        </select>
-                      )}
-                      <button type="button" className="icon-button small" onClick={() => updateSection(sectionIndex, { requirements: section.requirements.filter((_, index) => index !== requirementIndex) })}>×</button>
-                    </div>
+                    <CourseRequirementRow
+                      key={`${requirement.type}-${requirement.quizId || requirement.seriesId || requirementIndex}`}
+                      requirement={requirement}
+                      availableQuizzes={availableQuizzes}
+                      quizSeriesRows={quizSeriesRows}
+                      onChange={(patch) => updateRequirement(sectionIndex, requirementIndex, patch)}
+                      onRemove={() => updateSection(sectionIndex, { requirements: section.requirements.filter((_, index) => index !== requirementIndex) })}
+                    />
                   ))}
                   <div className="admin-card-actions">
                     <button type="button" className="ghost compact-button" onClick={() => updateSection(sectionIndex, { requirements: [...section.requirements, { type: 'quiz', quizId: '', seriesId: '' }] })}><Plus size={16} />Привязать тест</button>
@@ -1140,6 +1144,45 @@ function CourseAdminTools({ selectedCourse, saveCourse, availableQuizzes = [], q
         </div>
       </form>
     </section>
+  );
+}
+
+function selectId(value) {
+  if (value === undefined || value === null) return '';
+  return String(value);
+}
+
+function CourseRequirementRow({ requirement, availableQuizzes, quizSeriesRows, onChange, onRemove }) {
+  const isSeries = requirement.type === 'series';
+  const selectedValue = isSeries ? selectId(requirement.seriesId) : selectId(requirement.quizId);
+  const selectedQuiz = !isSeries ? availableQuizzes.find((quiz) => selectId(quiz.id) === selectedValue) : null;
+  const selectedSeries = isSeries ? quizSeriesRows.find((series) => selectId(series.id) === selectedValue) : null;
+  const selectedTitle = isSeries
+    ? selectedSeries?.name || requirement.seriesName || requirement.title || 'серия не выбрана'
+    : selectedQuiz ? `${selectedQuiz.category}: ${selectedQuiz.title}` : requirement.quizTitle || requirement.title || 'тест не выбран';
+  const hasMissingOption = selectedValue && (isSeries ? !selectedSeries : !selectedQuiz);
+
+  return (
+    <div className="requirement-editor-row">
+      <span className={cx('requirement-kind-badge', isSeries ? 'series' : 'quiz')}>{isSeries ? 'Серия' : 'Тест'}</span>
+      <div className="requirement-select-block">
+        {isSeries ? (
+          <select value={selectedValue} onChange={(event) => onChange({ seriesId: event.target.value })}>
+            <option value="">Выберите серию</option>
+            {hasMissingOption && <option value={selectedValue}>{selectedTitle}</option>}
+            {quizSeriesRows.map((series) => <option key={series.id || series.name} value={selectId(series.id)}>{series.name}</option>)}
+          </select>
+        ) : (
+          <select value={selectedValue} onChange={(event) => onChange({ quizId: event.target.value })}>
+            <option value="">Выберите тест</option>
+            {hasMissingOption && <option value={selectedValue}>{selectedTitle}</option>}
+            {availableQuizzes.map((quiz) => <option key={quiz.id} value={selectId(quiz.id)}>{quiz.category}: {quiz.title}</option>)}
+          </select>
+        )}
+        <small>{selectedValue ? `Сейчас привязано: ${selectedTitle}` : `Выберите ${isSeries ? 'серию' : 'тест'} для прохождения раздела`}</small>
+      </div>
+      <button type="button" className="icon-button small" aria-label="Удалить требование" onClick={onRemove}>×</button>
+    </div>
   );
 }
 
@@ -2164,7 +2207,7 @@ function QuizEditorForm({ draft, setDraft, quizSeries, seriesDescriptionMap, onS
   );
 }
 
-function AdminPage({ admin, reviewSubmission, reload, setPage, selectedSubmissionId, saveTask, deleteTask, saveQuiz, deleteQuiz, loadAdminQuiz, saveQuizSeries, deleteQuizSeries, toggleQuizVisibility, toggleQuizSeriesVisibility }) {
+function AdminPage({ admin, reviewSubmission, reload, setPage, selectedSubmissionId, saveTask, deleteTask, saveQuiz, deleteQuiz, loadAdminQuiz, saveQuizSeries, deleteQuizSeries, toggleQuizVisibility, toggleQuizSeriesVisibility, openAttempt }) {
   const [reward, setReward] = useState({});
   const [taskDraft, setTaskDraft] = useState({ title: '', description: '' });
   const [taskEditId, setTaskEditId] = useState(null);
@@ -2177,6 +2220,8 @@ function AdminPage({ admin, reviewSubmission, reload, setPage, selectedSubmissio
   const [quizEditDraft, setQuizEditDraft] = useState(defaultQuizDraft());
   const [quizEditId, setQuizEditId] = useState(null);
   const [openSeries, setOpenSeries] = useState({});
+  const [userProfile, setUserProfile] = useState(null);
+  const [userProfileLoading, setUserProfileLoading] = useState(false);
   const selectedId = Number(selectedSubmissionId || 0);
   const quizSeriesRows = useMemo(() => {
     if (admin.series?.length) return admin.series;
@@ -2282,6 +2327,19 @@ function AdminPage({ admin, reviewSubmission, reload, setPage, selectedSubmissio
       setQuizEditDraft(defaultQuizDraft());
     } catch (error) {
       alert(error.message);
+    }
+  }
+
+  async function openUserProfile(userId) {
+    setUserProfileLoading(true);
+    setUserProfile(null);
+    try {
+      const payload = await apiFetch(`/admin/users/${userId}`);
+      setUserProfile(payload);
+    } catch (error) {
+      alert(error.message || 'Не удалось загрузить профиль пользователя.');
+    } finally {
+      setUserProfileLoading(false);
     }
   }
 
@@ -2486,20 +2544,132 @@ function AdminPage({ admin, reviewSubmission, reload, setPage, selectedSubmissio
       </details>
       <details className="admin-panel">
         <summary><span>Пользователи</span><ChevronDown size={18} /></summary>
+        {(userProfile || userProfileLoading) && (
+          <AdminUserProfile
+            profile={userProfile}
+            loading={userProfileLoading}
+            onClose={() => setUserProfile(null)}
+            openAttempt={openAttempt}
+          />
+        )}
         <div className="list">
           {admin.users.map((user) => (
-            <div className="row" key={user.id}>
+            <button className="row row-button admin-user-row" key={user.id} type="button" onClick={() => openUserProfile(user.id)}>
               <Avatar user={user} />
               <div className="row-main">
                 <strong>{formatName(user)}</strong>
                 <span>{user.username ? `@${user.username}` : 'без username'} · {user.title_text}</span>
               </div>
               <b>{user.title_score}</b>
-            </div>
+            </button>
           ))}
         </div>
       </details>
     </main>
+  );
+}
+
+function AdminUserProfile({ profile, loading, onClose, openAttempt }) {
+  if (loading) {
+    return (
+      <section className="admin-user-profile">
+        <div className="admin-user-profile-head">
+          <strong>Загружаю профиль...</strong>
+          <button type="button" className="icon-button small" onClick={onClose}>×</button>
+        </div>
+      </section>
+    );
+  }
+  if (!profile) return null;
+
+  const { user, stats = {}, courses = [], attempts = [], submissions = [] } = profile;
+  return (
+    <section className="admin-user-profile">
+      <div className="admin-user-profile-head">
+        <div className="admin-user-title">
+          <Avatar user={user} size="lg" />
+          <div>
+            <span className="eyebrow">Профиль пользователя</span>
+            <h2>{formatName(user)}</h2>
+            <p>{user.username ? `@${user.username}` : 'без username'} · id {user.telegramId || user.id}</p>
+          </div>
+        </div>
+        <button type="button" className="icon-button" aria-label="Закрыть профиль" onClick={onClose}>×</button>
+      </div>
+
+      <div className="stats-grid admin-user-stats">
+        <Stat label="Титул" value={user.titleText} icon={Award} />
+        <Stat label="Баллы" value={user.titleScore} icon={Sparkles} />
+        <Stat label="Курсы" value={`${stats.coursesCompleted || 0}/${stats.coursesTotal || 0}`} icon={BookOpen} />
+        <Stat label="Разделы" value={`${stats.sectionsCompleted || 0}/${stats.sectionsTotal || 0}`} icon={BarChart3} />
+      </div>
+
+      <div className="admin-user-columns">
+        <section className="list-section admin-user-section">
+          <h2>Курсы</h2>
+          {courses.length === 0 && <p className="muted">Курсов нет.</p>}
+          {courses.map((courseItem) => {
+            const completed = courseItem.sections.filter((section) => section.user_status === 'completed').length;
+            return (
+              <details className="course-progress" key={courseItem.course.slug}>
+                <summary>
+                  <div>
+                    <strong>{courseItem.course.title}</strong>
+                    <span>{courseItem.course.is_visible === false ? 'скрыт · ' : ''}{courseItem.course.difficulty}</span>
+                  </div>
+                  <b>{completed}/{courseItem.sections.length}</b>
+                </summary>
+                <div className="progress-lines">
+                  {courseItem.sections.map((section) => (
+                    <div className="progress-line-button" key={section.slug}>
+                      <span>{section.title}</span>
+                      <b>{statusLabel(section.user_status)}</b>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            );
+          })}
+        </section>
+
+        <section className="list-section admin-user-section">
+          <h2>История тестов</h2>
+          <div className="list">
+            {attempts.length === 0 && <p className="muted">Попыток пока нет.</p>}
+            {attempts.map((attempt) => {
+              const isSurvey = attempt.quiz_type === 'survey';
+              return (
+                <button className="row row-button" key={attempt.id} type="button" onClick={() => openAttempt(attempt.id)}>
+                  <Check size={18} />
+                  <div className="row-main">
+                    <strong>{attempt.title}</strong>
+                    <span>{attemptCategoryLabel(attempt)} · {isSurvey ? 'опрос' : formatDifficulty(attempt.difficulty)} · {formatDateTime(attempt.created_at)}</span>
+                  </div>
+                  <b>{isSurvey ? 'опрос' : `${attempt.score}/${attempt.max_score}`}</b>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      </div>
+
+      <section className="list-section admin-user-section">
+        <h2>Задания</h2>
+        <div className="list">
+          {submissions.length === 0 && <p className="muted">Ответов на задания пока нет.</p>}
+          {submissions.map((submission) => (
+            <div className="row admin-user-submission" key={submission.id}>
+              <ClipboardList size={18} />
+              <div className="row-main">
+                <strong>{submission.task_num}. {submission.task_title}</strong>
+                <span>{statusLabel(submission.status)} · {formatDateTime(submission.created_at)}{submission.reward_points ? ` · ${formatPoints(submission.reward_points)}` : ''}</span>
+              </div>
+              <b>{submission.reward_points || 0}</b>
+            </div>
+          ))}
+        </div>
+      </section>
+    </section>
   );
 }
 
@@ -2701,11 +2871,16 @@ function courseToDraft(selectedCourse) {
         title: lesson.title || '',
         blocks: parseEditableLessonBlocks(lesson)
       })),
-      requirements: (section.requirements || []).map((requirement) => ({
-        type: requirement.requirement_type || requirement.type || 'quiz',
-        quizId: requirement.quiz_id || requirement.quizId || '',
-        seriesId: requirement.series_id || requirement.seriesId || ''
-      })),
+      requirements: (section.requirements || []).map((requirement) => {
+        const type = requirement.requirement_type || requirement.type || 'quiz';
+        return {
+          type,
+          quizId: selectId(requirement.quiz_id || requirement.quizId || (type === 'quiz' ? requirement.id : '')),
+          seriesId: selectId(requirement.series_id || requirement.seriesId || (type === 'series' ? requirement.id : '')),
+          quizTitle: requirement.quiz_title || requirement.quizTitle || (type === 'quiz' ? requirement.title : ''),
+          seriesName: requirement.series_name || requirement.seriesName || (type === 'series' ? requirement.title : '')
+        };
+      }),
       courseQuizzes: (section.courseQuizzes || section.course_quizzes || []).map((quiz) => ({
         id: quiz.id,
         title: quiz.title || '',
@@ -3062,7 +3237,7 @@ export function App() {
       {page === 'tests' && <TestsPage quizzes={quizzes} openQuiz={openQuiz} openContentPage={openContentPage} openSeriesDescription={openSeriesDescription} setPage={setPage} />}
       {page === 'leaderboard' && <LeaderboardPage leaderboard={leaderboard} setPage={setPage} />}
       {page === 'tasks' && <TasksPage tasks={tasks} submitTask={submitTask} loadMenu={loadMenu} loadMenuFilters={() => apiFetch('/tasks/dish-photo/menu-filters')} setPage={setPage} />}
-      {page === 'admin' && home.user.role === 'admin' && admin && <AdminPage admin={admin} reviewSubmission={reviewSubmission} reload={loadAdmin} setPage={setPage} selectedSubmissionId={selectedSubmissionId} saveTask={saveTask} deleteTask={deleteTask} saveQuiz={saveQuiz} deleteQuiz={deleteQuiz} loadAdminQuiz={loadAdminQuiz} saveQuizSeries={saveQuizSeries} deleteQuizSeries={deleteQuizSeries} toggleQuizVisibility={toggleQuizVisibility} toggleQuizSeriesVisibility={toggleQuizSeriesVisibility} />}
+      {page === 'admin' && home.user.role === 'admin' && admin && <AdminPage admin={admin} reviewSubmission={reviewSubmission} reload={loadAdmin} setPage={setPage} selectedSubmissionId={selectedSubmissionId} saveTask={saveTask} deleteTask={deleteTask} saveQuiz={saveQuiz} deleteQuiz={deleteQuiz} loadAdminQuiz={loadAdminQuiz} saveQuizSeries={saveQuizSeries} deleteQuizSeries={deleteQuizSeries} toggleQuizVisibility={toggleQuizVisibility} toggleQuizSeriesVisibility={toggleQuizSeriesVisibility} openAttempt={openAttempt} />}
       {page === 'admin' && home.user.role !== 'admin' && (
         <main className="page">
           <PageHeader eyebrow="Доступ" title="Админка закрыта"><BackHomeButton setPage={setPage} /></PageHeader>

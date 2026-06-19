@@ -505,7 +505,7 @@ function gradeQuizAttempt(quiz, questions, selectedAnswers) {
   return { score, maxScore, passed, weightedScore };
 }
 
-async function buildCoursePayload(courseSlug, user) {
+async function buildCoursePayload(courseSlug, user, options = {}) {
   const course = await query(
     `SELECT c.*, ucp.completed_at AS user_completed_at
      FROM courses c
@@ -514,7 +514,7 @@ async function buildCoursePayload(courseSlug, user) {
     [courseSlug, user.id]
   );
   if (!course.rows[0]) return null;
-  if (user.role !== 'admin' && course.rows[0].is_visible === false) return null;
+  if (!options.includeHidden && user.role !== 'admin' && course.rows[0].is_visible === false) return null;
   const rows = await query(
     `SELECT cs.*,
             COALESCE(up.status, 'locked') AS stored_status,
@@ -1030,8 +1030,8 @@ api.get('/quiz-attempts/:id', requireAuth, async (req, res) => {
      JOIN quizzes q ON q.id = qa.quiz_id
      LEFT JOIN course_sections cs ON cs.id = q.section_id
      LEFT JOIN courses c ON c.id = cs.course_id
-     WHERE qa.id = $1 AND qa.user_id = $2`,
-    [req.params.id, req.user.id]
+     WHERE qa.id = $1 AND ($3::boolean = true OR qa.user_id = $2)`,
+    [req.params.id, req.user.id, req.user.role === 'admin']
   );
   const attempt = attemptResult.rows[0];
   if (!attempt) return res.status(404).json({ error: 'Attempt not found' });
@@ -1528,6 +1528,91 @@ api.get('/admin/users', requireAuth, requireAdmin, async (_req, res) => {
      LIMIT 200`
   );
   res.json({ users: users.rows });
+});
+
+api.get('/admin/users/:id', requireAuth, requireAdmin, async (req, res) => {
+  const userResult = await query(
+    `SELECT *
+     FROM users
+     WHERE id = $1 AND ${nonDemoUserSql}`,
+    [req.params.id]
+  );
+  const user = userResult.rows[0];
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const attempts = await query(
+    `SELECT qa.id, qa.score, qa.max_score, qa.weighted_score, qa.passed, qa.created_at,
+            q.title,
+            CASE WHEN q.source = 'course' THEN COALESCE(c.title, q.category) ELSE q.category END AS category,
+            q.difficulty,
+            q.source,
+            q.quiz_type,
+            q.slug
+     FROM quiz_attempts qa
+     JOIN quizzes q ON q.id = qa.quiz_id
+     LEFT JOIN course_sections cs ON cs.id = q.section_id
+     LEFT JOIN courses c ON c.id = cs.course_id
+     WHERE qa.user_id = $1
+     ORDER BY qa.created_at DESC
+     LIMIT 200`,
+    [user.id]
+  );
+
+  const submissions = await query(
+    `SELECT ts.id, ts.status, ts.comment, ts.payload, ts.reward_points, ts.admin_comment, ts.created_at, ts.reviewed_at,
+            t.title AS task_title, t.task_num
+     FROM task_submissions ts
+     JOIN tasks t ON t.id = ts.task_id
+     WHERE ts.user_id = $1
+     ORDER BY ts.created_at DESC
+     LIMIT 100`,
+    [user.id]
+  );
+
+  const courseRows = await query('SELECT slug FROM courses ORDER BY order_index, id');
+  const courses = [];
+  for (const course of courseRows.rows) {
+    const payload = await buildCoursePayload(course.slug, user, { includeHidden: true });
+    if (payload) {
+      courses.push({
+        course: payload.course,
+        completed: payload.completed,
+        sections: payload.sections.map((section) => ({
+          id: section.id,
+          slug: section.slug,
+          title: section.title,
+          order_index: section.order_index,
+          user_status: section.user_status,
+          isCompleted: section.isCompleted,
+          required_count: section.required_count,
+          passed_count: section.passed_count
+        }))
+      });
+    }
+  }
+
+  const totalSections = courses.reduce((sum, course) => sum + course.sections.length, 0);
+  const completedSections = courses.reduce(
+    (sum, course) => sum + course.sections.filter((section) => section.user_status === 'completed').length,
+    0
+  );
+  const passedAttempts = attempts.rows.filter((attempt) => attempt.passed).length;
+
+  res.json({
+    user: publicUser(user),
+    attempts: attempts.rows,
+    submissions: submissions.rows,
+    courses,
+    stats: {
+      coursesCompleted: courses.filter((course) => course.completed).length,
+      coursesTotal: courses.length,
+      sectionsCompleted: completedSections,
+      sectionsTotal: totalSections,
+      attemptsCount: attempts.rows.length,
+      passedAttemptsCount: passedAttempts,
+      submissionsCount: submissions.rows.length
+    }
+  });
 });
 
 api.get('/admin/submissions', requireAuth, requireAdmin, async (req, res) => {

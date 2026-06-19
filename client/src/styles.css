@@ -1373,6 +1373,62 @@ textarea {
   margin: 0 16px 16px;
 }
 
+.admin-user-row {
+  width: 100%;
+}
+
+.admin-user-profile {
+  display: grid;
+  gap: 12px;
+  margin: 0 16px 16px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 252, 244, 0.82);
+}
+
+.admin-user-profile-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-user-title {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-user-title h2,
+.admin-user-title p {
+  margin: 0;
+}
+
+.admin-user-title p {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.admin-user-stats {
+  margin-top: 0;
+}
+
+.admin-user-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-user-section {
+  margin: 0;
+}
+
+.admin-user-submission {
+  align-items: center;
+}
+
 .admin-subpanel {
   margin: 0 16px 16px;
   border: 1px solid var(--line);
@@ -1587,6 +1643,48 @@ textarea {
   grid-template-columns: minmax(92px, 0.32fr) minmax(0, 1fr) auto;
   gap: 8px;
   align-items: center;
+}
+
+.requirement-editor-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 252, 244, 0.72);
+}
+
+.requirement-kind-badge {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: rgba(0, 109, 119, 0.12);
+  color: var(--teal);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.requirement-kind-badge.series {
+  background: rgba(107, 93, 211, 0.12);
+  color: var(--violet);
+}
+
+.requirement-select-block {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.requirement-select-block small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .media-upload-field {
@@ -2175,12 +2273,20 @@ textarea {
   }
 
   .requirement-row,
-  .requirement-card {
+  .requirement-card,
+  .requirement-editor-row,
+  .admin-user-columns {
     grid-template-columns: 1fr;
   }
 
   .requirement-row .icon-button,
-  .requirement-card > .secondary {
+  .requirement-card > .secondary,
+  .requirement-editor-row .icon-button {
     justify-self: start;
+  }
+
+  .admin-user-profile-head,
+  .admin-user-title {
+    align-items: flex-start;
   }
 }
